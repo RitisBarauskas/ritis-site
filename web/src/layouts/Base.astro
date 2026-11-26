@@ -1,0 +1,55 @@
+---
+import '@fontsource-variable/manrope';
+import '@fontsource-variable/jetbrains-mono';
+import '../styles/tokens.css';
+import '../styles/base.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import BookingDialog from '../components/BookingDialog.astro';
+import { demoBadge } from '../site.config';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<meta name="description" content={description}>
+{/* Runs before first paint so a visitor who chose the light theme never sees a dark flash. */}
+<script is:inline>
+  try { if (localStorage.getItem('ritis-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (_) {}
+</script>
+</head>
+<body>
+<Header />
+<main id="top">
+  <slot />
+</main>
+<Footer />
+<BookingDialog />
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="mbar"><a href="#book" class="btn btn-primary" data-book="session">Ритис, глянь проект</a></div>
+<div class="proto">{demoBadge}</div>
+</body>
+</html>
+
+<style>
+.toast{position:fixed;inset-inline-start:50%;inset-block-end:28px;transform:translate(-50%,20px);opacity:0;background:var(--ink);color:var(--bg);padding:14px 18px;border-radius:12px;font-size:15px;font-weight:600;z-index:100;transition:all .25s;max-width:calc(100% - 32px);pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.mbar{display:none}
+.proto{position:fixed;inset-inline-start:14px;inset-block-end:14px;z-index:40;font:500 11px/1 var(--mono);background:var(--surface);border:1px dashed var(--line);color:var(--muted);padding:8px 10px;border-radius:8px}
+
+@media (max-width:640px){
+  .mbar{display:flex;position:fixed;inset-inline:12px;inset-block-end:12px;z-index:60}
+  .mbar .btn{flex:1;box-shadow:0 18px 40px -12px rgba(0,0,0,.5)}
+  .proto{inset-block-start:76px;inset-block-end:auto}
+}
+</style>

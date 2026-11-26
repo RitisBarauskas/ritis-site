@@ -1,0 +1,53 @@
+---
+import { prices } from '../site.config';
+---
+<section class="block" id="faq">
+  <div class="wrap">
+    <p class="label"><b>09</b>Вопросы</p>
+    <h2>Что обычно спрашивают</h2>
+    <div class="faq">
+      <details open>
+        <summary>Чем это лучше, чем спросить ChatGPT или Claude самому?</summary>
+        <p>Ничем — если вы знаете, что спрашивать. ИИ отвечает ровно на заданный вопрос и охотно соглашается. Я приношу вопросы, о существовании которых вы не знали, ставлю ограничения и показываю, где ИИ звучит уверенно, но ошибается.</p>
+      </details>
+      <details>
+        <summary>Вы будете сами читать мой код?</summary>
+        <p>Построчно — нет, и это не нужно: сегодня это быстрее и внимательнее делает ИИ. Моя работа — поставить ему правильные вопросы и ограничения, проверить каждую находку, отсеять ложные и объяснить вам, что чинить первым и почему.</p>
+      </details>
+      <details>
+        <summary>Какую модель и подписку выбрать?</summary>
+        <p>Зависит от задачи. Цена лёгкой и флагманской модели одного производителя отличается до 40 раз, и переплата за флагманскую модель на рутине быстро становится заметной. Разберём на сессии под ваши задачи и бюджет.</p>
+      </details>
+      <details>
+        <summary>Поможете с продвижением и первыми клиентами?</summary>
+        <p>Нет. Это не моя компетенция, и я честно об этом говорю. Помогу сделать так, чтобы к приходу клиентов продукт работал и не создавал проблем.</p>
+      </details>
+      <details>
+        <summary>Мне нужно разбираться в программировании?</summary>
+        <p>Нет. С основателями говорю на языке бизнеса: деньги, сроки, риски. С разработчиками — на языке кода.</p>
+      </details>
+      <details>
+        <summary>Что подготовить к встрече?</summary>
+        <p>Коротко опишите задачу и пришлите всё, что есть: ссылку на репозиторий, макеты, документы. Чем больше пришлёте заранее, тем больше успеем за час.</p>
+      </details>
+      <details>
+        <summary>На каком языке?</summary>
+        <p>На русском или на ломаном английском.</p>
+      </details>
+      <details>
+        <summary>Как оплатить?</summary>
+        <p>При записи: первый звонок — {prices.session}. Подойдёт карта любой страны, включая «Мир», — спишется в валюте карты. Из России можно и через СБП, в рублях по курсу на день оплаты. Если дальше будет пакет, эта сумма засчитывается в его стоимость.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<style>
+.faq{margin-top:40px;border-block-start:1px solid var(--line);max-width:860px}
+details{border-block-end:1px solid var(--line)}
+summary{list-style:none;cursor:pointer;padding:24px 0;font-weight:700;font-size:19px;display:flex;justify-content:space-between;align-items:center;gap:20px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";flex:none;font:400 28px/1 var(--mono);color:var(--muted);transition:transform .2s}
+details[open] summary::after{transform:rotate(45deg)}
+details p{margin:0 0 24px;color:var(--muted);max-width:70ch;font-size:16.5px}
+</style>

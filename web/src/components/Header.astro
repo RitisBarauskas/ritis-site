@@ -1,0 +1,49 @@
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="#top" aria-label="ritis.dev">ritis<span class="dot">.</span><small>do it right</small></a>
+    <nav class="nav-links" aria-label="Разделы">
+      <a href="#ask">Как я работаю с ИИ</a>
+      <a href="#models">Модели</a>
+      <a href="#help">Чем помогаю</a>
+      <a href="#about">Обо мне</a>
+    </nav>
+    <div class="nav-tools">
+      <button type="button" class="icon-btn" id="theme" aria-label="Сменить тему">◐</button>
+      <a href="#book" class="btn btn-primary btn-sm" data-book="session">Ритис, глянь проект</a>
+    </div>
+  </div>
+</header>
+
+<script>
+  import { byId } from '../scripts/dom';
+
+  const root = document.documentElement;
+  byId('theme', HTMLButtonElement).addEventListener('click', () => {
+    const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem('ritis-theme', next);
+    } catch {
+      // Storage can be blocked (private mode): the theme still switches for this visit.
+    }
+  });
+</script>
+
+<style>
+.nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-block-end:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;gap:20px;height:66px}
+.logo{display:flex;align-items:baseline;gap:10px;text-decoration:none;font-weight:800;font-size:23px;letter-spacing:-.03em}
+.logo .dot{color:var(--accent)}
+.logo small{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.nav-links{display:flex;gap:24px;margin-inline-start:auto}
+.nav-links a{text-decoration:none;font-size:15px;color:var(--muted);font-weight:600;transition:color .15s}
+.nav-links a:hover{color:var(--ink)}
+.nav-tools{display:flex;align-items:center;gap:10px}
+
+@media (max-width:1000px){
+  .nav-links{display:none}
+}
+@media (max-width:640px){
+  .nav-tools .btn{display:none}
+}
+</style>

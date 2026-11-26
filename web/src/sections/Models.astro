@@ -1,0 +1,74 @@
+<section class="block" id="models">
+  <div class="wrap">
+    <p class="label"><b>03</b>Какую модель взять</p>
+    <h2>Трактор, вертолёт и катер — всё транспорт. Но&nbsp;в&nbsp;аэропорт вы поедете на&nbsp;такси</h2>
+    <p class="sub">Если нужно доставить себя с чемоданом из дома в аэропорт, выгоднее взять каршеринг или такси. Можно и на своей машине — переплатите за парковку у терминала, зато с комфортом и на родных колёсах.</p>
+    <p class="sub">С ИИ так же. Модели разные, задачи разные — а значит, разными будут и цена, и результат.</p>
+    <div class="vehicles">
+      <article class="veh">
+        <span class="ico" aria-hidden="true">🚕</span>
+        <h3>Такси и каршеринг</h3>
+        <span class="eq">= ИИ-чат или готовый сервис</span>
+        <p>Сел и поехал, платишь за поездку. Для разовых задач: письмо, текст, прикинуть идею, разобраться в чужом коде.</p>
+        <p class="when">Машина не ваша: чужие правила, чужие цены, а ваши данные едут в чужом салоне.</p>
+      </article>
+      <article class="veh">
+        <span class="ico" aria-hidden="true">🚗</span>
+        <h3>Своя машина</h3>
+        <span class="eq">= ИИ-агент в редакторе + репозиторий с правилами</span>
+        <p>Дороже на старте, и каждый месяц — «парковка у терминала»: подписки и токены. Зато агент знает ваш проект и ваши правила.</p>
+        <p class="when">Когда вы строите продукт, а не делаете разовую поездку.</p>
+      </article>
+      <article class="veh">
+        <span class="ico" aria-hidden="true">🚜</span>
+        <h3>Трактор</h3>
+        <span class="eq">= конвейер из агентов, своя модель, дообучение</span>
+        <p>Мощно и вспашет что угодно. Но если вам в аэропорт — долго, дорого и смешно.</p>
+        <p class="when">Когда задача правда тяжёлая и повторяется тысячи раз.</p>
+      </article>
+      <article class="veh">
+        <span class="ico" aria-hidden="true">🚁</span>
+        <h3>Вертолёт</h3>
+        <span class="eq">= самая мощная модель на каждую мелочь</span>
+        <p>Долетит быстро и красиво. Но счёт за исправленную опечатку будет как за перелёт.</p>
+        <p class="when">Для сложных решений — да. Для рутины — переплата.</p>
+      </article>
+      <article class="veh">
+        <span class="ico" aria-hidden="true">🚤</span>
+        <h3>Катер</h3>
+        <span class="eq">= инструмент не для этой среды</span>
+        <p>Например, конструктор без кода там, где нужны деньги, права доступа и нагрузка. Отличный катер — просто дорога не та.</p>
+        <p class="when">Когда «все так делают», а ваша задача — другая.</p>
+      </article>
+    </div>
+    <div class="price-strip">
+      <b>до&nbsp;40×</b>
+      <p>Во столько раз отличается цена лёгкой и флагманской модели у одного производителя. Часто лёгкой хватает, а иногда экономия на модели обходится дороже самой модели. <strong>Подберу под вашу задачу:</strong> где хватит копеечной модели, где нужна флагманская, а где ИИ не нужен вовсе.</p>
+    </div>
+  </div>
+</section>
+
+<style>
+.vehicles{display:grid;grid-template-columns:repeat(6,1fr);gap:18px;margin-top:48px}
+.vehicles>*,.price-strip>*{min-width:0}
+.veh{grid-column:span 2;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:26px;display:flex;flex-direction:column;gap:10px}
+.veh:nth-child(n+4){grid-column:span 3}
+.veh .ico{font-size:32px;line-height:1}
+.veh h3{margin:6px 0 0;font-size:21px;letter-spacing:-.015em}
+.veh .eq{align-self:flex-start;font:500 12.5px/1.45 var(--mono);background:var(--accent-soft);color:var(--ink);padding:5px 9px;border-radius:6px}
+.veh p{margin:0;color:var(--muted);font-size:15.5px}
+.veh .when{margin-top:auto;padding-top:14px;border-top:1px dashed var(--line);font-size:14.5px;color:var(--ink);font-weight:600}
+.price-strip{margin-top:20px;display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center;background:var(--ink);color:var(--bg);border-radius:20px;padding:26px 30px}
+.price-strip b{font-size:clamp(40px,4.4vw,56px);font-weight:800;letter-spacing:-.04em;color:var(--accent);line-height:1}
+.price-strip p{margin:0;font-size:16.5px;color:color-mix(in srgb,var(--bg) 82%,transparent)}
+.price-strip p strong{color:var(--bg)}
+
+@media (max-width:1000px){
+  .vehicles{grid-template-columns:1fr 1fr}
+  .veh,.veh:nth-child(n+4){grid-column:auto}
+}
+@media (max-width:640px){
+  .vehicles{grid-template-columns:1fr}
+  .price-strip{grid-template-columns:1fr;gap:12px}
+}
+</style>

@@ -1,0 +1,214 @@
+<section class="block" id="ask">
+  <div class="wrap">
+    <p class="label"><b>02</b>Как я работаю с ИИ</p>
+    <h2>Выручай-комната открывается тому, кто знает, что&nbsp;попросить</h2>
+    <p class="sub">Помните Выручай-комнату из «Гарри Поттера»? Она появляется только тому, кто точно знает, что ему нужно. Остальные проходят мимо голой стены. С ИИ так же: модель найдёт уязвимость, если спросить правильно. Не знаешь, что искать, — не найдёшь никогда.</p>
+    <div class="ask">
+      <div class="code" aria-label="Пример кода">
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span>payments/webhooks.py</span><span class="gen">написано ИИ</span></div>
+<pre><span class="ln" data-n="1"><span class="t-f">@app.post</span>(<span class="t-s">"/webhooks/payment"</span>)</span><span class="ln" data-n="2"><span class="t-k">async def</span> <span class="t-f">payment_webhook</span>(event: <span class="t-t">dict</span>):</span><span class="ln" data-n="3">    order = <span class="t-k">await</span> orders.get(event[<span class="t-s">"order_id"</span>])</span><span class="ln" data-n="4">    order.paid += event[<span class="t-s">"amount"</span>]</span><span class="ln" data-n="5">    <span class="t-k">await</span> orders.save(order)</span><span class="ln" data-n="6">    <span class="t-k">return</span> &#123;<span class="t-s">"ok"</span>: <span class="t-k">True</span>&#125;</span></pre>
+        <div class="code-foot"><span>✓ tests passed</span><span>✓ lint passed</span></div>
+        <div class="code-cap">Типичный обработчик оплаты, который охотно пишет ИИ. Код один и тот же — меняется только вопрос.</div>
+      </div>
+      <div>
+        <div class="tabs" role="tablist" aria-label="Как спросить ИИ">
+          <button type="button" role="tab" id="tab-naive" aria-controls="panel-naive" aria-selected="true">Как спрашивают обычно</button>
+          <button type="button" role="tab" id="tab-pro" aria-controls="panel-pro" aria-selected="false" tabindex="-1">Как спрашиваю я</button>
+          <button type="button" role="tab" id="tab-real" aria-controls="panel-real" aria-selected="false" tabindex="-1">Как на самом деле</button>
+        </div>
+        <div role="tabpanel" id="panel-naive" aria-labelledby="tab-naive">
+          <div class="msg you"><span class="who">вы</span><p>Проверь мой код оплаты на ошибки.</p></div>
+          <div class="msg ai"><span class="who">ИИ</span><p>Код аккуратный и хорошо читается 👍 Можно добавить аннотации типов, вынести путь "/webhooks/payment" в константу и написать docstring. Критических проблем не вижу.</p></div>
+          <p class="verdict bad">Ноль находок. Код уезжает в продакшен с дырой, через которую любой «оплатит» заказ одним запросом.</p>
+        </div>
+        <div role="tabpanel" id="panel-pro" aria-labelledby="tab-pro" hidden>
+          <div class="msg you"><span class="who">я</span><p class="prompt-text">Это обработчик уведомлений об оплате. Деньги настоящие, завтра запуск.
+Проверь только это и для каждого пункта покажи строку и сценарий сбоя:
+1. Проверяется ли подпись платёжной системы до любой работы с данными?
+2. Что будет, если то же уведомление придёт дважды? Платёжки повторяют доставку.
+3. Что будет, если два уведомления по одному заказу придут одновременно?
+4. В каких единицах amount и paid? Где журнал операций?
+Стиль, типы и названия не обсуждай. Если пункт в порядке — так и скажи, не выдумывай.</p></div>
+          <div class="msg ai"><span class="who">ИИ</span><p>Нашёл четыре проблемы. Нажмите на любую — подсвечу строку.</p>
+            <div class="findings">
+              <button class="cmt" data-lines="1-2" type="button"><span class="sev r"></span><span><span class="meta">критично · строки 1–2</span><span class="cmt-text">Подпись не проверяется. Любой может «оплатить» заказ одним POST-запросом.</span></span></button>
+              <button class="cmt" data-lines="4" type="button"><span class="sev r"></span><span><span class="meta">критично · строка 4</span><span class="cmt-text">Повторная доставка = двойное зачисление. Нужна идемпотентность по id события.</span></span></button>
+              <button class="cmt" data-lines="3-5" type="button"><span class="sev o"></span><span><span class="meta">важно · строки 3–5</span><span class="cmt-text">Гонка: два одновременных уведомления прочитают старое значение и перезапишут друг друга.</span></span></button>
+              <button class="cmt" data-lines="4" type="button"><span class="sev y"></span><span><span class="meta">стоит поправить · строка 4</span><span class="cmt-text">Единицы не сверены, журнала операций нет — потом не восстановить, что произошло с деньгами.</span></span></button>
+            </div>
+          </div>
+          <p class="verdict good">Тот же код. Та же модель. Разница — только в вопросе.</p>
+          <button type="button" class="next" data-next="tab-real">А на самом деле я и так не спрашиваю →</button>
+        </div>
+        <div role="tabpanel" id="panel-real" aria-labelledby="tab-real" hidden>
+          <div class="confess">
+            <p class="pre">Если вы дочитали до этого места</p>
+            <p><b>Скажу правду: я и так не спрашиваю.</b> Иначе моя продуктивность ушла бы ниже нуля.</p>
+            <p>Я заранее ставлю нужные ограничения, правила работы и требования к коду. В результате эти вопросы агент формулирует сам и задаёт их себе в ходе кросс-проверки.</p>
+          </div>
+          <p class="rules-cap">Правила проекта · задаются один раз, до первой строки кода</p>
+<pre class="rules small"><span class="c"># CLAUDE.md — фрагмент</span>
+<span class="h">## Деньги</span>
+- Баланс меняется только через журнал операций.
+- Суммы — целые числа в копейках, валюта указана явно.
+<span class="h">## Входящие уведомления</span>
+- Подпись проверяется до чтения тела.
+- Повторная доставка не меняет результат:
+  идемпотентность по id события.
+<span class="h">## Перед сдачей задачи</span>
+- Кросс-проверка: задай себе вопросы о повторах,
+  гонках и правах доступа, ответь со ссылкой на строку.
+- Нашёл нарушение правил — исправь, а не опиши.</pre>
+          <div class="msg you"><span class="who">я</span><p>Сделай обработчик уведомлений об оплате.</p></div>
+          <div class="msg ai"><span class="who">ИИ · кросс-проверка перед сдачей</span><p>Черновик слева нарушает правила проекта в четырёх местах. Исправил до сдачи:</p>
+            <div class="findings">
+              <button class="cmt" data-lines="1-2" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строки 1–2</span><span class="cmt-text">Подпись платёжной системы проверяется до чтения тела.</span></span></button>
+              <button class="cmt" data-lines="4" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строка 4</span><span class="cmt-text">Повторное уведомление с тем же id события игнорируется.</span></span></button>
+              <button class="cmt" data-lines="3-5" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строки 3–5</span><span class="cmt-text">Атомарное обновление вместо «прочитал — изменил — сохранил».</span></span></button>
+              <button class="cmt" data-lines="4" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строка 4</span><span class="cmt-text">Сумма в копейках, изменение баланса — через журнал операций.</span></span></button>
+            </div>
+          </div>
+          <p class="verdict good">Вопросы те же. Только задаю их не я — агент задаёт их себе сам, на каждой задаче.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="statement">Код построчно я не вычитываю — сегодня это быстрее и внимательнее делает ИИ. Моя работа — знать, что спросить, какие ограничения поставить и какой находке верить.</p>
+
+    <p class="mini-h">Почему ИИ говорит «всё отлично»</p>
+    <div class="cards3 why">
+      <article class="card">
+        <span class="k">01</span>
+        <h3>Отвечает ровно на вопрос</h3>
+        <p>Спросили «есть ли ошибки» — получили список мелочей. О подписи, повторах и гонках он промолчит, пока вы о них не спросите.</p>
+      </article>
+      <article class="card">
+        <span class="k">02</span>
+        <h3>Не знает вашего контекста</h3>
+        <p>ИИ не знает, что деньги настоящие, что платёжка повторяет уведомления и что завтра придёт тысяча пользователей. Это знание ему нужно дать.</p>
+      </article>
+      <article class="card">
+        <span class="k">03</span>
+        <h3>Хочет понравиться</h3>
+        <p>Модели склонны соглашаться с собеседником и звучат уверенно, даже когда ошибаются. Без ограничений вместо проверки получите комплимент.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { all, byId } from '../scripts/dom';
+
+  const lines = all('.ln');
+  const findings = all<HTMLButtonElement>('.cmt');
+  const tabs = all<HTMLButtonElement>('[role="tab"]');
+
+  function clearHighlight(): void {
+    for (const f of findings) f.classList.remove('active');
+    for (const l of lines) l.classList.remove('hl');
+  }
+
+  function selectTab(tab: HTMLButtonElement): void {
+    for (const t of tabs) {
+      const selected = t === tab;
+      t.setAttribute('aria-selected', String(selected));
+      t.tabIndex = selected ? 0 : -1;
+      byId(t.getAttribute('aria-controls') ?? '', HTMLDivElement).hidden = !selected;
+    }
+    clearHighlight();
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => selectTab(tab));
+    tab.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+      const step = event.key === 'ArrowRight' ? 1 : -1;
+      const next = tabs[(i + step + tabs.length) % tabs.length];
+      next.focus();
+      selectTab(next);
+    });
+  });
+
+  for (const button of all<HTMLButtonElement>('[data-next]')) {
+    button.addEventListener('click', () => {
+      const tab = byId(button.dataset.next ?? '', HTMLButtonElement);
+      selectTab(tab);
+      tab.focus();
+    });
+  }
+
+  for (const finding of findings) {
+    finding.addEventListener('click', () => {
+      const [from, to] = (finding.dataset.lines ?? '').split('-').map(Number);
+      const end = to || from;
+      for (const f of findings) f.classList.toggle('active', f === finding);
+      for (const l of lines) {
+        const n = Number(l.dataset.n);
+        l.classList.toggle('hl', n >= from && n <= end);
+      }
+    });
+  }
+</script>
+
+<style>
+.ask{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:44px;align-items:start}
+.ask>*{min-width:0}
+.code{background:var(--code-bg);color:var(--code-ink);border-radius:18px;overflow:hidden;font:400 14.5px/1.8 var(--mono);box-shadow:0 30px 60px -36px rgba(0,0,0,.6);position:sticky;top:90px}
+.code-head{display:flex;align-items:center;gap:12px;padding:13px 18px;border-block-end:1px solid rgba(255,255,255,.08);color:var(--code-muted);font-size:12px}
+.code-head .dots{display:flex;gap:6px}
+.code-head .dots i{width:10px;height:10px;border-radius:50%;background:#3A3842;display:block}
+.code-head .gen{margin-inline-start:auto;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:3px 9px}
+.code pre{margin:0;padding:16px 0;overflow-x:auto;font:inherit}
+.ln{display:block;padding-inline:18px 24px;position:relative;transition:background .2s;white-space:pre}
+.ln::before{content:attr(data-n);display:inline-block;width:2ch;margin-inline-end:20px;color:var(--code-muted);text-align:end}
+.ln.hl{background:rgba(226,163,43,.16)}
+.ln.hl::after{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:3px;background:var(--accent)}
+.t-k{color:#D7A6FF}.t-s{color:#A9DFA0}.t-f{color:#8CC8FF}.t-t{color:#F5C27A}
+.code-foot{padding:12px 18px;border-block-start:1px solid rgba(255,255,255,.08);color:var(--code-muted);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}
+.code-cap{padding:14px 18px 16px;border-block-start:1px solid rgba(255,255,255,.08);font:500 13px/1.5 var(--sans);color:var(--code-muted)}
+.tabs{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;background:var(--surface);margin-bottom:16px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:700 14px/1 var(--sans);padding:11px 16px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.msg{border-radius:16px;padding:16px 18px;margin-bottom:12px;font-size:15.5px;line-height:1.55}
+.msg .who{display:block;font:500 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.msg.you{background:var(--accent-soft);margin-inline-start:36px;border-end-end-radius:4px}
+.msg.ai{background:var(--surface);border:1px solid var(--line);margin-inline-end:36px;border-end-start-radius:4px}
+.msg p{margin:0}
+.prompt-text{font:400 13.5px/1.65 var(--mono);white-space:pre-wrap;margin:0}
+.findings{display:grid;gap:8px;margin-top:12px}
+.cmt{text-align:start;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;display:grid;grid-template-columns:auto 1fr;gap:12px;transition:border-color .15s,box-shadow .15s}
+.cmt:hover{border-color:color-mix(in srgb,var(--accent) 60%,var(--line))}
+.cmt.active{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.cmt .sev{width:11px;height:11px;border-radius:50%;margin-top:6px}
+.sev.r{background:var(--red)}.sev.o{background:var(--orange)}.sev.y{background:var(--yellow)}.sev.g{background:var(--green)}
+.cmt .meta{font:500 11px/1.4 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.cmt-text{display:block;margin:3px 0 0;font-size:14.5px;line-height:1.5}
+.verdict{margin:4px 0 0;font-size:15.5px;font-weight:600;padding:14px 16px;border-radius:12px;line-height:1.45}
+.verdict.bad{background:color-mix(in srgb,var(--red) 13%,transparent)}
+.verdict.good{background:color-mix(in srgb,var(--green) 15%,transparent)}
+.statement{margin:48px 0 0;font-size:clamp(21px,2.1vw,27px);font-weight:700;line-height:1.35;letter-spacing:-.015em;max-width:44ch;border-inline-start:4px solid var(--accent);padding-inline-start:22px}
+.mini-h{font:600 13px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:64px 0 0}
+.why{margin-top:20px}
+.why .card .k{background:transparent;padding:0;color:var(--muted)}
+
+/* tab 3: how it really works */
+.rules{background:var(--code-bg);color:var(--code-ink);border-radius:18px;padding:22px 24px;font:400 13.5px/1.8 var(--mono);white-space:pre-wrap;margin:0;box-shadow:0 30px 60px -36px rgba(0,0,0,.6)}
+.rules .h{color:#8CC8FF}.rules .c{color:var(--code-muted)}
+.rules.small{font-size:12.5px;line-height:1.75;padding:16px 18px;margin-bottom:12px}
+.confess{border:1px dashed color-mix(in srgb,var(--ink) 35%,var(--line));border-radius:16px;padding:18px 20px;margin-bottom:12px}
+.confess .pre{font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.confess p{margin:0;font-size:15.5px;line-height:1.55}
+.confess p + p:not(.pre){margin-top:8px}
+.rules-cap{font:500 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.next{margin-top:10px;width:100%;text-align:start;background:transparent;border:1px solid var(--line);border-radius:12px;padding:13px 16px;font:700 15px/1.35 var(--sans);color:var(--ink);cursor:pointer;transition:border-color .15s}
+.next:hover{border-color:var(--ink)}
+:global(html[data-theme="dark"]) .code,:global(html[data-theme="dark"]) .rules{box-shadow:none;border:1px solid var(--line)}
+
+@media (max-width:1000px){
+  .ask{grid-template-columns:1fr}
+  .code{position:static}
+}
+@media (max-width:640px){
+  .msg.you{margin-inline-start:16px}.msg.ai{margin-inline-end:16px}
+}
+</style>

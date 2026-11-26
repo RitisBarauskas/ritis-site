@@ -1,0 +1,23 @@
+---
+import { links } from '../site.config';
+---
+<footer>
+  <div class="wrap foot">
+    <span>© Individual Entrepreneur Ritis Barauskas</span>
+    <nav aria-label="Подвал">
+      <a href="#">Оферта</a>
+      <a href="#">Конфиденциальность</a>
+      <a href={`mailto:${links.email}`}>{links.email}</a>
+      <a href={links.telegram} target="_blank" rel="noopener">Telegram</a>
+      <a href={links.youtube} target="_blank" rel="noopener">YouTube</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+footer{border-block-start:1px solid var(--line);padding-block:34px 100px;color:var(--muted);font-size:14px}
+.foot{display:flex;flex-wrap:wrap;gap:14px 28px;justify-content:space-between;align-items:center}
+.foot nav{display:flex;flex-wrap:wrap;gap:8px 20px}
+.foot a{text-decoration:none}
+.foot a:hover{color:var(--ink)}
+</style>

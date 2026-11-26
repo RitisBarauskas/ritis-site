@@ -1,0 +1,27 @@
+<div class="wrap">
+  <div class="facts">
+    <div class="fact"><b>2&nbsp;500+</b><span>студенческих работ проверил как код-ревьюер</span></div>
+    <div class="fact"><b>≈&nbsp;1&nbsp;000</b><span>выпускников прошли путь от нуля до джуна под моим наставничеством</span></div>
+    <div class="fact"><b>7+</b><span>лет в разработке, на ведущих позициях</span></div>
+    <div class="fact"><b>4+</b><span>года ментор и ревьюер в Яндекс Практикуме</span></div>
+  </div>
+</div>
+
+<style>
+.facts{display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--line);margin-block-end:100px}
+.facts>*{min-width:0}
+.fact{padding:28px 24px;border-inline-start:1px solid var(--line)}
+.fact:first-child{border-inline-start:0;padding-inline-start:0}
+.fact b{display:block;font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1;margin-bottom:8px}
+.fact span{color:var(--muted);font-size:14.5px;line-height:1.45;display:block}
+
+@media (max-width:1000px){
+  .facts{grid-template-columns:repeat(2,1fr)}
+  .fact:nth-child(3){border-inline-start:0;padding-inline-start:0}
+  .fact:nth-child(n+3){border-block-start:1px solid var(--line)}
+}
+@media (max-width:640px){
+  .facts{margin-block-end:72px}
+  .fact b{font-size:36px}
+}
+</style>

@@ -1,0 +1,50 @@
+---
+import { Picture } from 'astro:assets';
+import hero from '../assets/img/hero.jpg';
+
+// object-fit:cover crops this landscape photo into a 4:5 frame, so the rendered image
+// is ~1.78× wider than the frame; sizes must describe that width, not the frame's.
+const heroSizes = '(max-width: 640px) calc((100vw - 36px) * 1.78), (max-width: 1000px) 710px, 780px';
+---
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Инженер и ментор · продукты с ИИ, которые не ломаются</div>
+      <h1>С ИИ как с водительскими правами. Права есть, а&nbsp;<mark>ездить</mark>&nbsp;— нет.</h1>
+      <p class="lead"><b>Я знаю не только дороги, но и ямы на них — и как устроена машина.</b> Помогу довести идею или прототип до продукта, который работает и не создаёт проблем.</p>
+      <div class="cta-row">
+        <a href="#book" class="btn btn-primary" data-book="session">Хочу ехать, а не шашечки</a>
+        <a href="#ask" class="btn btn-ghost">Как я работаю с ИИ ↓</a>
+      </div>
+      <p class="micro">Google Meet · 60 минут · на русском или ломаном английском</p>
+    </div>
+    <div class="portrait">
+      <div class="frame"><Picture src={hero} alt="Ритис Бараускас" formats={['avif', 'webp']} widths={[640, 960, 1280, 1600]} sizes={heroSizes} loading="eager" fetchpriority="high" /></div>
+      <div class="sticker">Так я смотрю на&nbsp;„ИИ сказал, что всё&nbsp;ок“</div>
+    </div>
+  </div>
+</section>
+
+<style>
+.hero{position:relative;padding-block:76px 60px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:32px 32px;-webkit-mask-image:radial-gradient(ellipse at 72% 40%,#000 15%,transparent 68%);mask-image:radial-gradient(ellipse at 72% 40%,#000 15%,transparent 68%);pointer-events:none}
+.hero-grid{position:relative;display:grid;grid-template-columns:1.15fr .85fr;gap:64px;align-items:center}
+.hero-grid>*{min-width:0}
+.eyebrow{font:500 12px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:12px}
+.eyebrow::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px color-mix(in srgb,var(--green) 22%,transparent)}
+.lead{font-size:clamp(17px,1.5vw,20px);color:var(--muted);max-width:56ch;margin:0}
+.lead b{color:var(--ink)}
+.micro{margin-top:18px;font:500 13px/1.5 var(--mono);color:var(--muted)}
+.portrait{position:relative;justify-self:end;width:100%;max-width:440px}
+.portrait .frame{aspect-ratio:4/5;border-radius:24px;overflow:hidden;background:#d9d4cb;box-shadow:0 40px 70px -40px rgba(0,0,0,.45)}
+.portrait .frame :global(img){width:100%;height:100%;object-fit:cover;object-position:44% 30%}
+.sticker{position:absolute;inset-inline-start:-36px;inset-block-end:34px;max-width:250px;background:var(--accent);color:var(--accent-ink);padding:14px 16px;border-radius:12px;font-weight:700;font-size:15px;line-height:1.3;transform:rotate(-3deg);box-shadow:0 14px 30px -12px rgba(0,0,0,.45)}
+
+@media (max-width:1000px){
+  .hero-grid{grid-template-columns:1fr}
+  .portrait{justify-self:center;max-width:400px;margin-top:10px}
+}
+@media (max-width:640px){
+  .sticker{inset-inline-start:10px;max-width:210px;font-size:14px}
+}
+</style>

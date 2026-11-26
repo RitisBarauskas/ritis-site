@@ -1,0 +1,29 @@
+<section class="block">
+  <div class="wrap">
+    <p class="label"><b>06</b>Как это устроено</p>
+    <h2>От записи до плана — четыре шага</h2>
+    <div class="steps">
+      <div class="step"><h3>Запись и оплата</h3><p>Выбираете формат, оплачиваете и выбираете удобное время.</p></div>
+      <div class="step"><h3>Короткая анкета</h3><p>Что хотите решить, ссылки на код, макеты, документы. Изучу заранее.</p></div>
+      <div class="step"><h3>Встреча в Google Meet</h3><p>60 минут по делу, на русском или ломаном английском. Запись — если хотите.</p></div>
+      <div class="step"><h3>Резюме и план</h3><p>В течение 24 часов письменно: выводы, решения, следующие шаги.</p></div>
+    </div>
+  </div>
+</section>
+
+<style>
+.steps{display:grid;grid-template-columns:repeat(4,1fr);margin-top:52px;counter-reset:s;border-block-start:1px solid var(--line)}
+.steps>*{min-width:0}
+.step{padding:28px 26px 0 0;position:relative}
+.step::before{counter-increment:s;content:"0" counter(s);font:600 13px/1 var(--mono);color:var(--accent);display:block;margin-bottom:14px}
+.step::after{content:"";position:absolute;inset-block-start:-5px;inset-inline-start:0;width:9px;height:9px;border-radius:50%;background:var(--ink)}
+.step h3{font-size:19px;margin:0 0 8px;letter-spacing:-.01em}
+.step p{color:var(--muted);font-size:15.5px;margin:0}
+
+@media (max-width:1000px){
+  .steps{grid-template-columns:repeat(2,1fr);row-gap:28px}
+}
+@media (max-width:640px){
+  .steps{grid-template-columns:1fr}
+}
+</style>

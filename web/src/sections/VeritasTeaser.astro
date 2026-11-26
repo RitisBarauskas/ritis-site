@@ -1,0 +1,43 @@
+<section class="block">
+  <div class="wrap">
+    <div class="teaser">
+      <div>
+        <span class="soon">скоро</span>
+        <h3><span class="mono">veritas.ritis.dev</span> — мои вопросы на автопилоте</h3>
+        <p class="sub">Вставьте ссылку на публичный репозиторий. ИИ пройдёт по нему с тем же набором вопросов и ограничений, что я ставлю при проверке перед запуском, и выдаст отчёт: что сломается, где дыры и что чинить первым.</p>
+      </div>
+      <form class="waitlist" id="waitlist">
+        <input type="url" required placeholder="https://github.com/вы/ваш-репозиторий" aria-label="Ссылка на репозиторий">
+        <input type="email" required placeholder="Почта — напишу, когда запустимся" aria-label="Почта">
+        <button class="btn btn-dark" type="submit">В лист ожидания</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { byId } from '../scripts/dom';
+  import { toast } from '../scripts/toast';
+
+  byId('waitlist', HTMLFormElement).addEventListener('submit', (event) => {
+    event.preventDefault();
+    (event.currentTarget as HTMLFormElement).reset();
+    toast('Демо: адрес попал бы в лист ожидания.');
+  });
+</script>
+
+<style>
+.teaser{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;border:1px solid var(--line);border-radius:24px;padding:44px;background:repeating-linear-gradient(-45deg,transparent 0 16px,var(--grid) 16px 17px),var(--surface)}
+.teaser>*{min-width:0}
+.soon{display:inline-block;font:600 11px/1 var(--mono);background:var(--accent-soft);color:var(--ink);padding:7px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px}
+.teaser h3{font-size:clamp(24px,2.4vw,32px);letter-spacing:-.025em;line-height:1.15;margin:0 0 12px}
+.teaser h3 .mono{font-size:.8em;font-weight:600}
+.waitlist{display:grid;gap:10px}
+
+@media (max-width:1000px){
+  .teaser{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .teaser{padding:28px;border-radius:22px}
+}
+</style>

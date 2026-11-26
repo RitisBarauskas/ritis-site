@@ -1,2 +1,32 @@
-# ritis-site
-Personal website of Individual Entrepreneur Ritis Barauskas
+# ritis.dev
+
+Сайт Ритиса Бараускаса: страница о консультациях, а дальше — бронь звонка, оплата и календарь.
+
+## Состояние
+
+Демо: статическая страница. Бронь звонка и лист ожидания Veritas пока заглушки — показывают всплывающее сообщение и никуда ничего не отправляют. Внешние ссылки (GitHub, LinkedIn, YouTube, Telegram) рабочие.
+
+## Структура
+
+- `web/` — страница на [Astro](https://astro.build), собирается в статические файлы.
+  - `src/pages/` — страницы, `src/sections/` — секции главной, `src/components/` — шапка, подвал, окно брони.
+  - `src/site.config.ts` — цены, ссылки и форматы в одном месте.
+  - `src/assets/img/` — фото; Astro сжимает их в AVIF/WebP под нужные размеры.
+  - `tests/e2e/` — браузерные тесты на Playwright.
+
+## Локально
+
+Нужны Node.js 22.23+ и установленный Google Chrome (для тестов).
+
+```sh
+cd web
+npm ci
+npm run dev      # http://localhost:4321
+npm run build    # сборка в web/dist
+npm run check    # проверка типов и фото без метаданных
+npm test         # пересобирает сайт и гоняет браузерные тесты
+```
+
+## Фото
+
+Репозиторий публичный. Перед тем как положить фото в `web/src/assets/img/`, удалите из него метаданные: EXIF (GPS, камера, даты), XMP, IPTC. `npm run check` падает, если они остались. Цветовой профиль (ICC) можно оставить.

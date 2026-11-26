@@ -1,0 +1,57 @@
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--sans);font-size:17px;line-height:1.6;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
+img{max-width:100%;display:block}
+/* <Picture> wraps <img>; let the image size against its frame as a bare <img> would */
+picture{display:contents}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:24px}
+.mono{font-family:var(--mono)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:12px;padding:15px 22px;font:700 16px/1.1 var(--sans);text-decoration:none;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,background .15s,border-color .15s}
+.btn-primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 1px 0 rgba(0,0,0,.08),0 10px 26px -12px color-mix(in srgb,var(--accent) 80%,transparent)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 1px 0 rgba(0,0,0,.08),0 16px 32px -12px color-mix(in srgb,var(--accent) 90%,transparent)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn-ghost:hover{border-color:var(--ink)}
+.btn-dark{background:var(--ink);color:var(--bg)}
+.btn-sm{padding:10px 14px;font-size:14px;border-radius:10px}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--ink);cursor:pointer;font-size:16px}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+
+/* ---------- headings and section scaffolding ---------- */
+h1{font-size:clamp(36px,4.6vw,60px);line-height:1.02;letter-spacing:-.04em;font-weight:800;margin:20px 0 24px}
+h1 mark,h2 mark{background:linear-gradient(transparent 60%,var(--accent-soft) 60%);color:inherit;padding-inline:.04em}
+/* Each block owns the space below it. Spacing must not depend on DOM adjacency:
+   Astro renders a component's <script> in place, between sections. */
+section.block{padding-block:0 100px}
+.label{font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 18px;display:flex;gap:10px}
+.label b{color:var(--accent);font-weight:600}
+h2{font-size:clamp(31px,3.7vw,50px);line-height:1.07;letter-spacing:-.035em;font-weight:800;margin:0 0 18px;max-width:24ch}
+.sub{color:var(--muted);font-size:18.5px;max-width:64ch;margin:0}
+.sub + .sub{margin-top:14px}
+.note{margin-top:22px;color:var(--muted);font-size:14.5px}
+
+/* ---------- shared cards ---------- */
+.cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:48px}
+.cards3>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+.card .k{font:600 12px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:inline-block;background:var(--accent-soft);padding:6px 9px;border-radius:6px}
+.card h3{font-size:21px;line-height:1.25;margin:16px 0 10px;letter-spacing:-.015em}
+.card p{margin:0;color:var(--muted);font-size:16px}
+
+/* ---------- forms ---------- */
+input,textarea,select{font:inherit;font-size:16px;padding:13px 14px;border-radius:11px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+textarea{min-height:92px;resize:vertical}
+
+@media (max-width:1000px){
+  .cards3{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  body{font-size:16px}
+  .wrap{padding-inline:18px}
+  section.block{padding-block:0 72px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}

@@ -1,0 +1,100 @@
+---
+import { prices } from '../site.config';
+---
+<dialog id="book" aria-labelledby="book-title">
+  <form method="dialog" id="book-form">
+    <div class="dlg-head">
+      <h3 id="book-title">Обсудим ваш проект</h3>
+      <button type="button" class="icon-btn" data-close aria-label="Закрыть">✕</button>
+    </div>
+    <div class="stepper" aria-hidden="true">
+      <div class="on"><i></i><span>анкета</span></div>
+      <div><i></i><span>оплата</span></div>
+      <div><i></i><span>время</span></div>
+      <div><i></i><span>Google Meet</span></div>
+    </div>
+    <div class="dlg-body">
+      <label>Что обсуждаем
+        <select name="format" id="format">
+          <option value="session">Час строгого техлида</option>
+          <option value="foundation">Фундамент: от идеи до репозитория</option>
+          <option value="checkup">Проверка перед запуском</option>
+          <option value="support">Техлид на связи</option>
+          <option value="teardown">Бесплатный разбор в ролике</option>
+        </select>
+      </label>
+      <p class="pay" id="pay" aria-live="polite"></p>
+      <label>Как вас зовут<input name="name" required></label>
+      <label>Почта или Telegram<input name="contact" required></label>
+      <label>Что хотите решить?<textarea name="about" placeholder="Пара предложений о задаче"></textarea></label>
+      <label>Ссылки (репозиторий, макеты, документы)<input name="links" placeholder="необязательно"></label>
+      <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} и выбрать время →</button>
+      <p class="dlg-note">Карта любой страны, «Мир» или СБП. После оплаты откроется календарь, ссылка на Google Meet придёт на почту.</p>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import { all, byId } from '../scripts/dom';
+  import { toast } from '../scripts/toast';
+  import { packageAccusative, prices, type BookingFormat } from '../site.config';
+
+  const dlg = byId('book', HTMLDialogElement);
+  const format = byId('format', HTMLSelectElement);
+  const pay = byId('pay', HTMLParagraphElement);
+  const submit = byId('book-submit', HTMLButtonElement);
+
+  const isFree = () => format.value === 'teardown';
+  const bold = (text: string) => Object.assign(document.createElement('b'), { textContent: text });
+
+  function renderPay(): void {
+    if (isFree()) {
+      pay.replaceChildren(bold('Бесплатно.'), ' Если репозиторий подойдёт для ролика, напишу и договоримся о разборе.');
+      submit.textContent = 'Отправить заявку →';
+      return;
+    }
+    const pkg = packageAccusative[format.value as BookingFormat];
+    pay.replaceChildren(
+      bold(`К оплате: ${prices.session}`),
+      ' — звонок 60 минут в Google Meet.' + (pkg ? ` Если решим продолжить, сумма засчитается в ${pkg}.` : ''),
+    );
+    submit.textContent = `Оплатить ${prices.session} и выбрать время →`;
+  }
+
+  format.addEventListener('change', renderPay);
+  for (const trigger of all('[data-book]')) {
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      format.value = trigger.dataset.book ?? 'session';
+      renderPay();
+      dlg.showModal();
+    });
+  }
+  for (const close of all('[data-close]', dlg)) close.addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', (event) => {
+    if (event.target === dlg) dlg.close();
+  });
+  byId('book-form', HTMLFormElement).addEventListener('submit', (event) => {
+    event.preventDefault();
+    dlg.close();
+    toast(isFree()
+      ? 'Демо: заявка на разбор ушла бы мне в Telegram.'
+      : 'Демо: здесь будет оплата, а затем выбор времени в календаре.');
+  });
+</script>
+
+<style>
+dialog{border:0;border-radius:22px;padding:0;max-width:560px;width:calc(100% - 32px);background:var(--surface);color:var(--ink);box-shadow:0 40px 80px -20px rgba(0,0,0,.55)}
+dialog::backdrop{background:rgba(15,14,12,.55);backdrop-filter:blur(3px)}
+.dlg-head{padding:26px 28px 0;display:flex;justify-content:space-between;align-items:start;gap:16px}
+.dlg-head h3{margin:0;font-size:24px;letter-spacing:-.02em}
+.stepper{display:flex;gap:6px;padding:18px 28px 0}
+.stepper div{flex:1}
+.stepper i{display:block;height:4px;border-radius:4px;background:var(--line);margin-bottom:6px}
+.stepper .on i{background:var(--accent)}
+.stepper span{font:500 11px/1 var(--mono);color:var(--muted)}
+.dlg-body{padding:22px 28px 28px;display:grid;gap:14px}
+label{font-size:13px;font-weight:700;color:var(--muted);display:grid;gap:7px}
+.pay{margin:0;background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45}
+.dlg-note{font:500 12.5px/1.5 var(--mono);color:var(--muted);margin:0}
+</style>

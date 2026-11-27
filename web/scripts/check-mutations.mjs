@@ -53,6 +53,9 @@ const PAGE = 'src/scripts/booking-page.ts';
 const RU = 'src/i18n/ru.ts';
 const CLIENT_TEXT = 'src/i18n/client.ts';
 const RU_OFFER = 'src/legal/ru/Offer.astro';
+const LOCALES = 'src/i18n/locales.ts';
+const HEADER = 'src/components/Header.astro';
+const BASE = 'src/layouts/Base.astro';
 
 const MUTATIONS = [
   // The booking dialog.
@@ -69,11 +72,11 @@ const MUTATIONS = [
   M(DIALOG, String.raw`required maxlength="100" pattern=".*\S.*"`, 'required maxlength="100"', 'имя из одних пробелов'),
   M(DIALOG, 'const price = prices[chosen];', 'const price = prices.start;', 'формат launch: к оплате'),
   M(CLIENT_TEXT, "Сумма засчитается в «Фундамент», если вы его закажете.'", "'", 'формат foundation: к оплате'),
-  M(RU, '<a href="${offer}" target="_blank">оферту</a>', '<a href="#" target="_blank">оферту</a>', 'согласие в окне брони ведёт на оферту'),
+  M(RU, '<a href="${offer}" target="_blank">оферту</a>', '<a href="#" target="_blank">оферту</a>', 'юридические страницы [ru] согласие в окне брони'),
   // The legal pages.
-  M('src/components/Footer.astro', "<a href={localized(locale, '/refund/')}>{t.refund}</a>", '<a href="#">{t.refund}</a>', 'юридические страницы ссылка «Возврат» в подвале'),
-  M(RU_OFFER, '<RefundTerms />', '<ol class="refund"><li>Иначе.</li></ol>', 'условия возврата в оферте и на своей странице'),
-  M(RU_OFFER, '<dt>Технический старт — {prices.start}</dt>', '<dt>Технический старт — {prices.launch}</dt>', 'в оферте у каждого формата своя цена'),
+  M('src/components/Footer.astro', "<a href={localized(locale, '/refund/')}>{t.refund}</a>", '<a href="#">{t.refund}</a>', 'юридические страницы [ru] ссылка «Возврат» в подвале'),
+  M(RU_OFFER, '<RefundTerms />', '<ol class="refund"><li>Иначе.</li></ol>', 'юридические страницы [ru] условия возврата в оферте и на своей странице'),
+  M(RU_OFFER, '<dt>Технический старт — {prices.start}</dt>', '<dt>Технический старт — {prices.launch}</dt>', 'юридические страницы [ru] в оферте у каждого формата своя цена'),
   M(RU_OFFER, '<a href="/refund/">условия возврата</a>', '<a href="/refnd/">условия возврата</a>', 'внутренние ссылки ведут на существующие страницы'),
   M(RU_OFFER, '<h2 id="refund">', '<h2>', 'внутренние ссылки ведут на существующие страницы'),
   // What each failure of the API turns into.
@@ -100,6 +103,18 @@ const MUTATIONS = [
   M('src/styles/base.css', '[hidden]{display:none!important}', '', 'оплата на проверке'),
   M('src/sections/Offers.astro', '<span>Visa</span><span>Mastercard</span><em>', '<span>Visa</span><span>Mastercard</span><span>Мир</span><em>', 'обещает только те способы оплаты'),
   M('src/components/Header.astro', '<a href={`${home}#help`}>', '<a href="#help">', 'шапка ведёт на разделы главной'),
+  // Languages: each page speaks its own, and links keep to it.
+  M(LOCALES, "locale === DEFAULT_LOCALE ? path : `/${locale}${path}`;", 'path;', 'внутренние ссылки ведут на существующие страницы'),
+  M(LOCALES, String.raw`return pathname.replace(/^\/[^/]+/, '') || '/';`, 'return pathname;', 'переключатель языка ведёт на ту же страницу'),
+  M(HEADER, 'link.href = link.pathname + window.location.search + window.location.hash;', 'link.href = link.pathname;', 'переключатель языка ведёт на ту же страницу'),
+  M(HEADER, "aria-current={l === locale ? 'page' : undefined}", 'aria-current={undefined}', 'переключатель языка отмечает текущий язык'),
+  M(HEADER, '.langs{display:flex;gap:2px;', '.langs{display:flex;flex-direction:column;gap:2px;', 'шапка на ширине'),
+  M(BASE, '<html lang={locale} data-theme="dark">', '<html lang="ru" data-theme="dark">', 'страницы [en] /en/: объявляет свой язык'),
+  M(BASE, 'hreflang={l} href={alternate(l)}', 'hreflang={l} href={alternate(DEFAULT_LOCALE)}', 'каждая страница называет поисковикам себя'),
+  M(CLIENT_TEXT, 'return isLocale(lang) ? lang : DEFAULT_LOCALE;', 'return DEFAULT_LOCALE;', 'бронь на английском окно говорит'),
+  M(DIALOG, "booking.checkout_url ?? `${localized(locale, '/booking/')}?id=", 'booking.checkout_url ?? `/booking/?id=', 'бронь на английском без открытой оплаты'),
+  M('src/site.config.ts', "en: { amount: (n) => `₾${n}`,", 'en: { amount: (n) => `${n} ₾`,', '[en] цены из каталога'),
+  M('src/legal/index.ts', 'en: { Offer: EnOffer, Refund: EnRefund, Privacy: EnPrivacy, Details: EnDetails },', 'en: ru,', 'страницы [en] /en/offer/: объявляет свой язык'),
   // Proves the broken-script path: this one must not count as caught.
   M(DIALOG, "byId('book-fields', HTMLFieldSetElement)", "byId('no-such-id', HTMLFieldSetElement)", 'анкета уходит в API', 'BROKEN (script)'),
 ];

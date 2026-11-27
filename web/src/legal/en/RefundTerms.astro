@@ -1,0 +1,20 @@
+---
+// The refund rules, once: the offer and the refund page of this language both show them.
+import { links } from '../../site.config';
+---
+<ol class="refund">
+  <li>The Customer may withdraw from the order at any time before the Result is delivered. The payment is refunded less the costs the Contractor has actually incurred:
+    <ul>
+      <li>the price of the stages of the Scope of Work already delivered to the Repository by the time of the notice, by their shares of the order price;</li>
+      <li>the cost of services paid for specifically for this order — AI models, computing resources, paid tools — as invoiced.</li>
+    </ul>
+    If no stage has been delivered and no services were paid for the order, the payment is refunded in full. Calls and recording the Scope of Work are not charged for. The amount withheld never exceeds the amount paid; in reply to the notice, the Contractor sends its calculation.
+  </li>
+  <li>A Consumer Customer may withdraw from the contract within 14 days after payment by writing to <a href={`mailto:${links.email}`}>{links.email}</a>. By paying for the order, they ask for the work to start immediately, so if they withdraw within this period they pay for the delivered stages and services under item 1. Once the whole Result has been delivered, this right ends.</li>
+  <li>The payment is refunded in full if the Contractor cannot perform the order: the task does not fit the paid Format, requires technologies the Contractor does not work with, or cannot be done because of restrictions on passing materials that the Customer specified before the Scope of Work was agreed — and the Customer has not chosen another Format.</li>
+  <li>If the Contractor has not delivered the Result on time through its own fault, the Customer may set a new reasonable deadline and, if that one is missed too, withdraw from the order and get the payment back in full. This does not limit any other rights the law gives a Consumer Customer. The deadline is not missed while the Contractor is waiting for the Customer’s answer, materials, access or agreement on changes to the Scope of Work.</li>
+  <li>Once the Result has been accepted, the Customer can no longer withdraw from the order under item 1. Defects that the Customer has reported within the period of clause 5.6 of the offer, and a Consumer Customer also within the periods set by law, are remedied by the Contractor at no extra charge. If the Contractor has not remedied a material defect within 10 Working Days of the report, or has refused to remedy it, the Customer may withdraw from the order and get the payment back; the rights to the Result then return to the Contractor, and the Customer stops using it. This does not limit any other rights the law gives a Consumer Customer.</li>
+  <li>The Development subscription can be stopped at any time. Each month is a separate order: the payment for the current month is refunded under item 1; payments for past months are not refunded.</li>
+  <li>If the Contractor withdraws from the order because the project violates the law or the rights of third parties, or because the Customer has stopped responding, the payment is refunded under item 1.</li>
+  <li>Money is returned to the card the order was paid with, through the payment provider Flitt, within 10 days of the notice. When it reaches the account depends on the card’s bank. If a dispute about the payment is open with the bank, the refund on the notice waits for its outcome, so that the money is not returned twice. Send the notice to <a href={`mailto:${links.email}`}>{links.email}</a>, stating the contact from the booking form.</li>
+</ol>

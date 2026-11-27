@@ -1,0 +1,13 @@
+---
+import Legal from '../../layouts/Legal.astro';
+import { links } from '../../site.config';
+import Requisites from '../Requisites.astro';
+---
+<Legal title="Business details and contacts" description="Who sells the services on ritis.dev and how to reach them." revised="2026-11-27">
+  <Requisites />
+  <h2>Contact</h2>
+  <p>For orders, payment and refunds — <a href={`mailto:${links.email}`}>{links.email}</a>. I reply within a working day.</p>
+  <p>News and videos, in Russian — the <a href={links.telegram} target="_blank" rel="noopener">Telegram channel</a> and <a href={links.youtube} target="_blank" rel="noopener">YouTube</a>.</p>
+  <h2>Payment</h2>
+  <p>Prices are stated and payment is charged in lari, by Visa and Mastercard, through the payment provider Flitt. The terms are in the <a href="/en/offer/">public offer</a> and the <a href="/en/refund/">refund terms</a>.</p>
+</Legal>

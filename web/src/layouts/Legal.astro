@@ -18,7 +18,7 @@ const locale = localeOfUrl(Astro.url);
   <section class="block">
     <div class="wrap legal">
       <h1>{title}</h1>
-      <p class="revised">{contentIn(locale).legal.revised} {legalDate(locale, revised)}</p>
+      <p class="revised">{contentIn(locale).legal.revised(legalDate(locale, revised))}</p>
       <slot />
     </div>
   </section>

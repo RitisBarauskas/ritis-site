@@ -1,0 +1,9 @@
+---
+import Legal from '../../layouts/Legal.astro';
+import { offerRevision } from '../../site.config';
+import RefundTerms from './RefundTerms.astro';
+---
+<Legal title="Refund terms" description="When and how ritis.dev refunds a payment." revised={offerRevision}>
+  <p>These terms are the <a href="/en/offer/#refund">refund section of the public offer</a>; the defined terms in them mean the same as in the offer.</p>
+  <RefundTerms />
+</Legal>

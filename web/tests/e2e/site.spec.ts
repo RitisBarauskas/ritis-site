@@ -2,6 +2,9 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 const FAVICON = /\/favicon\.ico$/;
+const NBSP = String.fromCharCode(0xa0);
+/** The home page of each language: its layout differs with the length of its texts. */
+const HOMES: Record<string, string> = { ru: '/', en: '/en/' };
 
 async function collectErrors(page: Page): Promise<string[]> {
   const errors: string[] = [];
@@ -14,29 +17,48 @@ async function collectErrors(page: Page): Promise<string[]> {
 }
 
 test.describe('страница', () => {
-  test('загружается без ошибок в консоли', async ({ page }) => {
-    const errors = await collectErrors(page);
+  for (const [locale, home] of Object.entries(HOMES)) {
+    test(`[${locale}] загружается без ошибок в консоли`, async ({ page }) => {
+      const errors = await collectErrors(page);
 
-    await page.goto('/', { waitUntil: 'networkidle' });
+      await page.goto(home, { waitUntil: 'networkidle' });
 
-    expect(errors).toEqual([]);
-  });
-
-  for (const width of [390, 820, 1440]) {
-    test(`не даёт горизонтальной прокрутки на ширине ${width} ни на одной вкладке демо`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/');
-
-      // Each demo tab has different content, so each one can push the layout wider.
-      const overflowByTab: Record<string, number> = {};
-      for (const tab of await page.getByRole('tab').all()) {
-        await tab.click();
-        overflowByTab[(await tab.textContent()) ?? ''] =
-          await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-      }
-
-      expect(overflowByTab).toEqual({ 'Как спрашивают обычно': 0, 'Как спрашиваю я': 0, 'Как на самом деле': 0 });
+      expect(errors).toEqual([]);
     });
+
+    for (const width of [390, 820, 1440]) {
+      test(`[${locale}] не даёт горизонтальной прокрутки на ширине ${width} ни на одной вкладке демо`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(home);
+
+        // Each demo tab has different content, so each one can push the layout wider.
+        const overflow: number[] = [];
+        for (const tab of await page.getByRole('tab').all()) {
+          await tab.click();
+          overflow.push(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth));
+        }
+
+        expect(overflow).toEqual([0, 0, 0]);
+      });
+
+      test(`[${locale}] шапка на ширине ${width} умещается в одну строку`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(home);
+
+        // Wrapped links or buttons stand taller than the bar or stick out of it.
+        const clipped = await page.locator('header.nav .nav-in > *:visible, header.nav .nav-in > * > *:visible').evaluateAll((all) => {
+          const bar = document.querySelector('header.nav .nav-in')!.getBoundingClientRect();
+          return all
+            .filter((el) => {
+              const box = el.getBoundingClientRect();
+              return box.top < bar.top || box.bottom > bar.bottom || box.left < bar.left - 1 || box.right > bar.right + 1;
+            })
+            .map((el) => el.outerHTML.slice(0, 60));
+        });
+
+        expect(clipped).toEqual([]);
+      });
+    }
   }
 
   test('все фото загружаются, когда до них доходит прокрутка', async ({ page }) => {
@@ -78,15 +100,18 @@ test.describe('страница', () => {
     expect(text).not.toMatch(/«Мир»|СБП/);
   });
 
-  test('цены из каталога, разряды через неразрывный пробел', async ({ page }) => {
-    await page.goto('/');
+  // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
+  const PRICES: Record<string, string[]> = {
+    ru: [`600${NBSP}₾`, `от 6${NBSP}000${NBSP}₾`, `1${NBSP}500${NBSP}₾`, `от 3${NBSP}000${NBSP}₾/мес`],
+    en: ['₾600', 'from ₾6,000', '₾1,500', 'from ₾3,000/month'],
+  };
+  for (const [locale, expected] of Object.entries(PRICES)) {
+    test(`[${locale}] цены из каталога, в записи этого языка`, async ({ page }) => {
+      await page.goto(HOMES[locale]);
 
-    // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
-    const prices = await page.locator('#help .price b').allTextContents();
-
-    const nbsp = String.fromCharCode(0xa0);
-    expect(prices).toEqual([`600${nbsp}₾`, `от 6${nbsp}000${nbsp}₾`, `1${nbsp}500${nbsp}₾`, `от 3${nbsp}000${nbsp}₾/мес`]);
-  });
+      expect(await page.locator('#help .price b').allTextContents()).toEqual(expected);
+    });
+  }
 });
 
 test.describe('тема', () => {
@@ -216,19 +241,21 @@ test.describe('окно брони', () => {
     await expect(page.locator('#book-submit')).toHaveText('Отправить заявку →');
   });
 
-  test('на ширине 390 содержимое окна не вылезает за его края', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
-    await page.locator('main [data-book="foundation"]').first().click();
+  for (const [locale, home] of Object.entries(HOMES)) {
+    test(`[${locale}] на ширине 390 содержимое окна не вылезает за его края`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(home);
+      await page.locator('main [data-book="foundation"]').first().click();
 
-    // The honeypot is squeezed to 1px on purpose.
-    const overflowing = await page.locator('#book .dlg-body *').evaluateAll((all) =>
-      all
-        .filter((el) => !el.closest('.hp') && el.scrollWidth > el.clientWidth + 1)
-        .map((el) => el.outerHTML.slice(0, 80)));
+      // The honeypot is squeezed to 1px on purpose.
+      const overflowing = await page.locator('#book .dlg-body *').evaluateAll((all) =>
+        all
+          .filter((el) => !el.closest('.hp') && el.scrollWidth > el.clientWidth + 1)
+          .map((el) => el.outerHTML.slice(0, 80)));
 
-    expect(overflowing).toEqual([]);
-  });
+      expect(overflowing).toEqual([]);
+    });
+  }
 
   test('клик по затемнению вокруг окна закрывает его', async ({ page }) => {
     await page.goto('/');

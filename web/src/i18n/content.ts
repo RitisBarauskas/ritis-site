@@ -1,10 +1,13 @@
+import en from './en';
 import { localeOfUrl, type Locale } from './locales';
 import ru from './ru';
+
+export type { FaqContext } from './ru';
 
 /** Everything a page says, in one language. Russian sets the shape; the others must match it. */
 export type Content = typeof ru;
 
-const CONTENT: Record<Locale, Content> = { ru };
+const CONTENT: Record<Locale, Content> = { ru, en };
 
 export const contentIn = (locale: Locale): Content => CONTENT[locale];
 

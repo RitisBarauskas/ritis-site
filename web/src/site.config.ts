@@ -24,6 +24,7 @@ interface MoneyStyle {
  */
 const MONEY: Record<Locale, MoneyStyle> = {
   ru: { amount: (n) => `${n}${NBSP}₾`, from: (p) => `от ${p}`, month: '/мес', group: NBSP },
+  en: { amount: (n) => `₾${n}`, from: (p) => `from ${p}`, month: '/month', group: ',' },
 };
 
 function lari(locale: Locale, amountMinor: number): string {
@@ -69,13 +70,14 @@ export const bookingPricesIn = (locale: Locale): Prices => ({
 
 const MONTHS: Record<Locale, string[]> = {
   ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 };
 
 /** A date as the legal pages write it. */
 export function legalDate(locale: Locale, iso: string): string {
   const [year, month, day] = iso.split('-').map(Number);
   const name = MONTHS[locale][month - 1];
-  return `${day} ${name} ${year} года`;
+  return locale === 'ru' ? `${day} ${name} ${year} года` : `${day} ${name} ${year}`;
 }
 
 /** The offer in force, from the catalog the API stamps on every booking; the refund terms share it. */

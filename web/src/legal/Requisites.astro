@@ -6,7 +6,7 @@ const t = pageContent(Astro.url).legal;
 ---
 <dl class="requisites">
   <dt>{t.requisites.seller}</dt>
-  <dd>{t.merchantName} ({merchant.nameLatin})</dd>
+  <dd>{t.merchantName === merchant.nameLatin ? t.merchantName : `${t.merchantName} (${merchant.nameLatin})`}</dd>
   <dt>{t.requisites.registryId}</dt>
   <dd>{merchant.registryId}, {t.registry}</dd>
   <dt>{t.requisites.country}</dt>

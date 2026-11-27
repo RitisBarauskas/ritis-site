@@ -1,0 +1,59 @@
+---
+import { contentIn } from '../../i18n/content';
+import Legal from '../../layouts/Legal.astro';
+import { links, merchant } from '../../site.config';
+
+const { merchantName, country } = contentIn('en').legal;
+---
+<Legal title="Privacy policy" description="What data ritis.dev collects, why, and how it handles it." revised="2026-11-27">
+  <h2>Who processes the data</h2>
+  <p>{merchantName}, {country}, registration number {merchant.registryId} — the Contractor under the <a href="/en/offer/">public offer</a>, “we” below. Questions about data go to <a href={`mailto:${links.email}`}>{links.email}</a>.</p>
+
+  <h2>What data we receive</h2>
+  <ul>
+    <li><b>Booking form:</b> name, email or Telegram, the description of the task, links and the chosen format.</li>
+    <li><b>Consent:</b> the time of the booking and the date of the offer revision you accepted when you asked for the work to start immediately after payment.</li>
+    <li><b>Booking and payment details:</b> the booking number, its status, the amount, the order number at the payment provider and refund details. Card data is entered on the page of the provider Flitt and is not passed to us.</li>
+    <li><b>Correspondence and calls:</b> emails, messenger messages and project materials you send. We record calls only if you ask us to.</li>
+    <li><b>Technical data:</b> the IP address, browser details and the pages requested get into the hosting servers’ logs automatically.</li>
+  </ul>
+  <p>The site uses no cookies, analytics or advertising trackers. The browser’s storage (localStorage) keeps only the colour theme you chose; it is not sent to the server. The payment page is Flitt’s website, with its own rules.</p>
+
+  <h2>Why</h2>
+  <ul>
+    <li>To fulfil the order: contact you, arrange the call, do the work and deliver it.</li>
+    <li>To accept payment and, if needed, refund it.</li>
+    <li>To handle claims and payment disputes.</li>
+    <li>To keep records and meet tax obligations.</li>
+    <li>To protect the site from abuse: filter out bot requests and investigate failures.</li>
+  </ul>
+  <p>The grounds are the contract you conclude by paying for the order, the legal requirements for record-keeping, and our legitimate interest in running the site safely and in defending our rights in a dispute. Data is not sold or used for advertising.</p>
+
+  <h2>Who receives the data</h2>
+  <p>Only those without whom the site and the work on the order cannot run, and only to the extent they need:</p>
+  <ul>
+    <li><b>Flitt</b> (Georgia) — accepting payments and refunding money: the amount, the order description and your email if you gave one;</li>
+    <li><b>Google</b> — hosting of the site and its server side (Firebase Hosting, Google Cloud, booking data stored in a European Union region), Google Meet video calls and email;</li>
+    <li><b>Telegram and other messengers</b> — correspondence with you if you chose that channel, and notifications to us about new bookings: the booking number, the format, the name and contact from the form;</li>
+    <li><b>development services and AI models</b> — repository hosting, CI and the AI models used in the work on the order, under the rules of clause 9.2 of the <a href="/en/offer/">offer</a>;</li>
+    <li><b>banks and payment systems</b> — if you dispute a payment: details of the order, the correspondence and the delivery of the work.</li>
+  </ul>
+  <p>Some of these services store data outside Georgia.</p>
+
+  <h2>How long we keep it</h2>
+  <ul>
+    <li>Booking, payment and refund details, the consent, the correspondence and the history of delivering the work, including copies of the delivered commits — as long as tax records require, and at least 3 years after the order is completed: that is how long the periods for claims and disputes run.</li>
+    <li>Copies of your materials — up to 30 days after the work is completed; the Result itself stays in your repository.</li>
+    <li>Booking forms that were never paid for — 30 days.</li>
+    <li>Server logs — for a limited time, as the hosting is set up.</li>
+  </ul>
+
+  <h2>Your rights</h2>
+  <p>You can find out what data of yours we hold, correct it, ask for it to be deleted or for its processing to be restricted. Write to <a href={`mailto:${links.email}`}>{links.email}</a> — we respond within 10 working days. Data needed for records and for disputes over a paid order cannot be deleted before its retention period ends. If you believe your rights have been violated, you can turn to the Personal Data Protection Service of Georgia.</p>
+
+  <h2>Security</h2>
+  <p>The site and its server side work over HTTPS only. Only we have access to booking data; access keys to services are kept in a protected store, not in the code.</p>
+
+  <h2>Changes</h2>
+  <p>A new revision of the policy is published on this page with its date. For data already collected, it applies only if it does not make your position worse.</p>
+</Legal>

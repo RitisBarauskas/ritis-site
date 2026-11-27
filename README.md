@@ -9,13 +9,13 @@
 ## Структура
 
 - `web/` — страница на [Astro](https://astro.build), собирается в статические файлы.
-  - `src/pages/` — страницы, `src/sections/` — секции главной, `src/components/` — шапка, подвал, окно брони.
+  - `src/pages/` — страницы: главная, `/booking/`, оферта, условия возврата, конфиденциальность, реквизиты; `src/sections/` — секции главной, `src/components/` — шапка, подвал, окно брони, общие части юридических страниц.
   - `src/scripts/` — код в браузере; `booking-api.ts` — запросы к API брони, `booking-page.ts` — страница `/booking/`.
-  - `src/site.config.ts` — ссылки и форматы; цены берёт из `shared/catalog.json`.
+  - `src/site.config.ts` — ссылки, форматы и реквизиты продавца; цены берёт из `shared/catalog.json`.
   - `src/assets/img/` — фото; Astro сжимает их в AVIF/WebP под нужные размеры.
   - `tests/e2e/` — браузерные тесты на Playwright.
 - `api/` — бронь и оплата на FastAPI, подробности в [api/README.md](api/README.md).
-- `shared/catalog.json` — цены: по ним собирается сайт и считает оплату API.
+- `shared/catalog.json` — форматы и цены: по ним собирается сайт, а API берёт цену брони и текст заказа для Flitt.
 
 ## Локально: сайт
 

@@ -85,7 +85,7 @@ test.describe('страница', () => {
     const prices = await page.locator('#help .price b').allTextContents();
 
     const nbsp = String.fromCharCode(0xa0);
-    expect(prices).toEqual(['€200', `от €2${nbsp}000`, 'от €500', `от €1${nbsp}000/мес`]);
+    expect(prices).toEqual(['€200', `от €2${nbsp}000`, '€500', `от €1${nbsp}000/мес`]);
   });
 });
 
@@ -173,10 +173,10 @@ test.describe('демо «Как я работаю с ИИ»', () => {
 
 test.describe('окно брони', () => {
   const triggers: Array<[string, string]> = [
-    ['session', 'Час строгого техлида'],
+    ['start', 'Технический старт'],
     ['foundation', 'Фундамент: от идеи до репозитория'],
-    ['checkup', 'Проверка перед запуском'],
-    ['support', 'Техлид на связи'],
+    ['launch', 'Подготовка к запуску'],
+    ['subscription', 'Разработка по подписке'],
     ['teardown', 'Бесплатный разбор в ролике'],
   ];
 
@@ -190,13 +190,23 @@ test.describe('окно брони', () => {
     });
   }
 
-  test('для пакета показывает цену звонка и что она засчитается в пакет', async ({ page }) => {
-    await page.goto('/');
+  // Packages are booked as the technical start that opens them; launch preparation has its own price.
+  const charges: Array<[string, string, string]> = [
+    ['start', '€200', 'К оплате: €200 — созвон по задаче и репозиторий под неё в течение 5 рабочих дней.'],
+    ['launch', '€500', 'К оплате: €500 — исправления пулл-реквестами в вашем репозитории.'],
+    ['foundation', '€200', 'К оплате сейчас: €200 — технический старт, первый этап. Сумма засчитается в «Фундамент».'],
+    ['subscription', '€200', 'К оплате сейчас: €200 — технический старт, первый этап. Сумма засчитается в «Разработку по подписке».'],
+  ];
+  for (const [format, price, text] of charges) {
+    test(`формат ${format}: к оплате ${price} и за что`, async ({ page }) => {
+      await page.goto('/');
 
-    await page.locator('main [data-book="foundation"]').click();
+      await page.locator(`main [data-book="${format}"]`).first().click();
 
-    await expect(page.locator('#pay')).toHaveText('К оплате: €200 — звонок 60 минут в Google Meet. Если решим продолжить, сумма засчитается в «Фундамент».');
-  });
+      await expect(page.locator('#pay')).toContainText(text);
+      await expect(page.locator('#book-submit')).toHaveText(`Оплатить ${price} →`);
+    });
+  }
 
   test('бесплатный разбор не просит оплату', async ({ page }) => {
     await page.goto('/');
@@ -208,7 +218,7 @@ test.describe('окно брони', () => {
 
   test('клик по затемнению вокруг окна закрывает его', async ({ page }) => {
     await page.goto('/');
-    await page.locator('main [data-book="session"]').first().click();
+    await page.locator('main [data-book="start"]').first().click();
 
     await page.mouse.click(5, 5);
 

@@ -5,7 +5,7 @@ from datetime import timedelta
 import pytest
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
-from ritis_api.app.catalog import Catalog
+from ritis_api.app.catalog import Catalog, Offer
 from ritis_api.app.confirm_payment import ConfirmPayment
 from ritis_api.app.open_booking import CheckoutSettings, OpenBooking, StartBooking
 from ritis_api.domain.booking import Booking, BookingFormat, Customer
@@ -15,6 +15,7 @@ from ritis_api.ports.storage import BookingRepository
 from tests.fakes import Clock, FakeProvider, Ids, RecordingNotifier
 
 PRICE = Money(20000, Currency.EUR)
+CATALOG = Catalog({fmt: Offer(PRICE, f"ritis.dev — {fmt.value}") for fmt in BookingFormat})
 RECHECK = timedelta(seconds=5)
 SETTINGS = CheckoutSettings(
     return_url_template="https://api.example/return?booking={booking_id}",
@@ -80,11 +81,12 @@ def make_open_booking(
     provider: FakeProvider,
     clock: Clock,
     settings: CheckoutSettings = SETTINGS,
+    catalog: Catalog = CATALOG,
 ) -> OpenBooking:
     return OpenBooking(
         repository=repository,
         provider=provider,
-        catalog=Catalog(call_price=PRICE),
+        catalog=catalog,
         settings=settings,
         clock=clock,
         new_id=Ids(),
@@ -92,11 +94,14 @@ def make_open_booking(
 
 
 def start_command(
-    key: str = "key-0000000000000001", contact: str = "client@example.com", name: str = "Анна"
+    key: str = "key-0000000000000001",
+    contact: str = "client@example.com",
+    name: str = "Анна",
+    booking_format: BookingFormat = BookingFormat.FOUNDATION,
 ) -> StartBooking:
     return StartBooking(
         idempotency_key=key,
-        booking_format=BookingFormat.FOUNDATION,
+        booking_format=booking_format,
         customer=Customer(name=name, contact=contact, about="MVP на FastAPI", links=""),
     )
 

@@ -1,27 +1,27 @@
 ---
-import { payments, prices } from '../site.config';
+import { bookingPrice, payments } from '../site.config';
 ---
 <dialog id="book" aria-labelledby="book-title">
   <form method="dialog" id="book-form">
     <div class="dlg-head">
-      <h3 id="book-title">Обсудим ваш проект</h3>
+      <h3 id="book-title">Расскажите о проекте</h3>
       <button type="button" class="icon-btn" data-close aria-label="Закрыть">✕</button>
     </div>
     <div class="stepper" aria-hidden="true">
       <div class="on"><i></i><span>анкета</span></div>
       <div><i></i><span>оплата</span></div>
-      <div><i></i><span>время</span></div>
-      <div><i></i><span>Google Meet</span></div>
+      <div><i></i><span>созвон</span></div>
+      <div><i></i><span>репозиторий</span></div>
     </div>
     <div class="dlg-body">
       <!-- Disabled as a whole while a request is in flight. -->
       <fieldset class="dlg-fields" id="book-fields">
-        <label>Что обсуждаем
+        <label>Формат
           <select name="format" id="format">
-            <option value="session">Час строгого техлида</option>
+            <option value="start">Технический старт</option>
             <option value="foundation">Фундамент: от идеи до репозитория</option>
-            <option value="checkup">Проверка перед запуском</option>
-            <option value="support">Техлид на связи</option>
+            <option value="launch">Подготовка к запуску</option>
+            <option value="subscription">Разработка по подписке</option>
             <option value="teardown">Бесплатный разбор в ролике</option>
           </select>
         </label>
@@ -29,17 +29,17 @@ import { payments, prices } from '../site.config';
         <!-- The API trims spaces: a name needs a character besides them, a contact three. -->
         <label>Как вас зовут<input name="name" required maxlength="100" pattern=".*\S.*"></label>
         <label>Почта или Telegram<input name="contact" required maxlength="200" pattern="\s*\S.+\S\s*"></label>
-        <label>Что хотите решить?<textarea name="about" maxlength="2000" placeholder="Пара предложений о задаче"></textarea></label>
+        <label>Что нужно сделать?<textarea name="about" maxlength="2000" placeholder="Пара предложений о задаче"></textarea></label>
         <label>Ссылки (репозиторий, макеты, документы)<input name="links" maxlength="1000" placeholder="необязательно"></label>
         <!-- Hidden from people; bots fill it in, and the API refuses the request. Named so that
              autofill leaves it alone. -->
         <div class="hp" aria-hidden="true"><label>Дополнительно<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
-        <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="#">офертой</a> и <a href="#">политикой конфиденциальности</a></label>
+        <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="/offer/" target="_blank">офертой</a> и <a href="/privacy/" target="_blank">политикой конфиденциальности</a></label>
         <p class="dlg-error" id="book-error" role="alert" hidden></p>
-        <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} →</button>
+        <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {bookingPrice.start} →</button>
       </fieldset>
       <p class="dlg-note">
-        Оплата в евро картой Visa или Mastercard. После оплаты я свяжусь с вами, чтобы выбрать время, и пришлю ссылку на Google Meet.
+        Оплата в евро картой Visa или Mastercard. После оплаты я свяжусь с вами, чтобы назначить созвон, и пришлю ссылку на Google Meet.
       </p>
       {payments.testMode && <p class="dlg-test">Тестовый режим: деньги не списываются, для оплаты подойдёт только тестовая карта.</p>}
     </div>
@@ -50,7 +50,7 @@ import { payments, prices } from '../site.config';
   import { BookingApi, BookingApiError, failureMessages, type BookingRequest } from '../scripts/booking-api';
   import { all, byId } from '../scripts/dom';
   import { toast } from '../scripts/toast';
-  import { packageAccusative, prices, type BookingFormat } from '../site.config';
+  import { bookingPrice, type PaidFormat } from '../site.config';
 
   const dlg = byId('book', HTMLDialogElement);
   const form = byId('book-form', HTMLFormElement);
@@ -83,6 +83,25 @@ import { payments, prices } from '../site.config';
 
   const keys = new RequestKeys();
   const isFree = () => format.value === 'teardown';
+  // What paying now buys: packages open with the technical start, which counts towards them.
+  const PAY: Record<PaidFormat, { label: string; text: string }> = {
+    start: {
+      label: 'К оплате',
+      text: ' — созвон по задаче и репозиторий под неё в течение 5 рабочих дней.',
+    },
+    launch: {
+      label: 'К оплате',
+      text: ' — исправления пулл-реквестами в вашем репозитории. Если проекту нужно больше, до начала работ предложу другой формат или верну деньги.',
+    },
+    foundation: {
+      label: 'К оплате сейчас',
+      text: ' — технический старт, первый этап. Сумма засчитается в «Фундамент».',
+    },
+    subscription: {
+      label: 'К оплате сейчас',
+      text: ' — технический старт, первый этап. Сумма засчитается в «Разработку по подписке».',
+    },
+  };
   const bold = (text: string) => Object.assign(document.createElement('b'), { textContent: text });
 
   function renderPay(): void {
@@ -94,12 +113,10 @@ import { payments, prices } from '../site.config';
       submit.textContent = 'Отправить заявку →';
       return;
     }
-    const pkg = packageAccusative[format.value as BookingFormat];
-    pay.replaceChildren(
-      bold(`К оплате: ${prices.session}`),
-      ' — звонок 60 минут в Google Meet.' + (pkg ? ` Если решим продолжить, сумма засчитается в ${pkg}.` : ''),
-    );
-    submit.textContent = `Оплатить ${prices.session} →`;
+    const chosen = format.value as PaidFormat;
+    const price = bookingPrice[chosen];
+    pay.replaceChildren(bold(`${PAY[chosen].label}: ${price}`), PAY[chosen].text);
+    submit.textContent = `Оплатить ${price} →`;
   }
 
   function requestFrom(data: FormData): BookingRequest {
@@ -160,7 +177,7 @@ import { payments, prices } from '../site.config';
   for (const trigger of all('[data-book]')) {
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
-      format.value = trigger.dataset.book ?? 'session';
+      format.value = trigger.dataset.book ?? 'start';
       errorText.hidden = true;
       renderPay();
       dlg.showModal();

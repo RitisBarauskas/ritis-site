@@ -8,7 +8,7 @@ export function booking(status: string, checkoutUrl: string | null = null, canRe
   return {
     id: ID,
     status,
-    format: 'session',
+    format: 'start',
     amount_minor: 20000,
     currency: 'EUR',
     checkout_url: checkoutUrl,
@@ -59,7 +59,7 @@ export const inFlight =
   (route: Route): Promise<void> =>
     route.fulfill({ json: booking('awaiting_payment', mark ? `${CHECKOUT}#${mark}` : CHECKOUT) });
 
-export async function openDialog(page: Page, format = 'session'): Promise<void> {
+export async function openDialog(page: Page, format = 'start'): Promise<void> {
   await page.goto('/');
   await page.locator(`main [data-book="${format}"]`).first().click();
 }

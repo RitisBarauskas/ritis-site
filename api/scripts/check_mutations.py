@@ -314,6 +314,43 @@ MUTATIONS = [
         "if False:",
         "test_a_misspelt_environment_variable_stops_the_start",
     ),
+    # Each format is booked at its own price and reads as itself at the provider.
+    M(
+        "app/open_booking.py",
+        "price=self._catalog.offer(command.booking_format).price,",
+        "price=next(iter(self._catalog.offers.values())).price,",
+        "test_charges_and_names_the_format_that_was_booked",
+    ),
+    M(
+        "app/open_booking.py",
+        "description=self._catalog.offer(booking.format).order,",
+        "description=next(iter(self._catalog.offers.values())).order,",
+        "test_charges_and_names_the_format_that_was_booked",
+    ),
+    M(
+        "app/catalog.py",
+        "own[entry.starts_with or booking_format]",
+        "own[booking_format]",
+        "test_a_package_is_booked_at_the_price_of_the_format_it_starts_with",
+    ),
+    M(
+        "app/catalog.py",
+        "if (self.price_minor is None) == (self.starts_with is None):",
+        "if False:",
+        "test_rejects_a_broken_catalog and (both_prices or no_price)",
+    ),
+    M(
+        "app/catalog.py",
+        "missing = set(BookingFormat) - set(self.formats)",
+        "missing: set[BookingFormat] = set()",
+        "test_rejects_a_broken_catalog and drop_format",
+    ),
+    M(
+        "app/catalog.py",
+        "and self.formats[entry.starts_with].price_minor is None",
+        "and False",
+        "test_rejects_a_broken_catalog and starts_with_a_package",
+    ),
     # HTTP edges.
     M(
         "http/flitt.py",

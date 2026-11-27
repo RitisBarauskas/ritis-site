@@ -32,7 +32,6 @@ class CheckoutSettings:
     notification_url: str
     lifetime_seconds: int
     language: str = "ru"
-    description: str = "ritis.dev — звонок 60 минут"
 
     def return_url(self, booking_id: BookingId) -> str:
         return self.return_url_template.format(booking_id=booking_id)
@@ -73,7 +72,7 @@ class OpenBooking:
             idempotency_key=command.idempotency_key,
             booking_format=command.booking_format,
             customer=command.customer,
-            price=self._catalog.call_price,
+            price=self._catalog.offer(command.booking_format).price,
             now=self._clock(),
         )
         order_id = self._new_attempt(booking)
@@ -139,7 +138,7 @@ class OpenBooking:
         return CheckoutRequest(
             order_id=order_id,
             amount=booking.price,
-            description=self._settings.description,
+            description=self._catalog.offer(booking.format).order,
             return_url=self._settings.return_url(booking.id),
             notification_url=self._settings.notification_url,
             lifetime_seconds=self._settings.lifetime_seconds,

@@ -33,7 +33,7 @@ test.describe('оплата из окна брони', () => {
     expect(requests[0].method()).toBe('POST');
     expect(requests[0].headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
     expect(requests[0].postDataJSON()).toEqual({
-      format: 'session',
+      format: 'start',
       name: 'Тест',
       contact: 'test@example.com',
       about: '',

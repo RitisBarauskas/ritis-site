@@ -1,9 +1,24 @@
 {
   "currency": "EUR",
-  "call": { "amount_minor": 20000 },
-  "packages": {
-    "foundation": { "from_minor": 200000 },
-    "checkup": { "from_minor": 50000 },
-    "support": { "from_minor": 100000, "per": "month" }
+  "formats": {
+    "start": {
+      "price_minor": 20000,
+      "order": "ritis.dev — Технический старт: репозиторий под вашу задачу"
+    },
+    "launch": {
+      "price_minor": 50000,
+      "order": "ritis.dev — Подготовка к запуску: исправления в вашем репозитории"
+    },
+    "foundation": {
+      "starts_with": "start",
+      "from_minor": 200000,
+      "order": "ritis.dev — Технический старт, первый этап «Фундамента»"
+    },
+    "subscription": {
+      "starts_with": "start",
+      "from_minor": 100000,
+      "per": "month",
+      "order": "ritis.dev — Технический старт, первый этап разработки по подписке"
+    }
   }
 }

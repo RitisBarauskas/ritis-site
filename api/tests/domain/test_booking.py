@@ -33,7 +33,7 @@ def new_booking() -> Booking:
     return Booking.new(
         booking_id=BookingId("b" * 32),
         idempotency_key="k" * 16,
-        booking_format=BookingFormat.SESSION,
+        booking_format=BookingFormat.START,
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=PRICE,
         now=NOW,

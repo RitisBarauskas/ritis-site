@@ -1,0 +1,13 @@
+---
+import Requisites from '../components/legal/Requisites.astro';
+import Legal from '../layouts/Legal.astro';
+import { links } from '../site.config';
+---
+<Legal title="Реквизиты и контакты" description="Кто продаёт услуги на ritis.dev и как с ним связаться." revised="27 ноября 2026 года">
+  <Requisites />
+  <h2>Связь</h2>
+  <p>По заказам, оплате и возврату — <a href={`mailto:${links.email}`}>{links.email}</a>. Отвечаю в течение рабочего дня.</p>
+  <p>Новости и ролики — <a href={links.telegram} target="_blank" rel="noopener">Telegram-канал</a> и <a href={links.youtube} target="_blank" rel="noopener">YouTube</a>.</p>
+  <h2>Оплата</h2>
+  <p>Оплата принимается в евро картами Visa и Mastercard через платёжного провайдера Flitt. Условия — в <a href="/offer/">публичной оферте</a> и <a href="/refund/">условиях возврата</a>.</p>
+</Legal>

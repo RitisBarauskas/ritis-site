@@ -26,12 +26,12 @@ from ritis_api.domain.payment import (
 
 
 class BookingFormat(StrEnum):
-    """Paid formats. Every one of them starts with the same paid call."""
+    """Paid formats; what booking each one costs is in the catalog."""
 
-    SESSION = "session"
+    START = "start"
+    LAUNCH = "launch"
     FOUNDATION = "foundation"
-    CHECKUP = "checkup"
-    SUPPORT = "support"
+    SUBSCRIPTION = "subscription"
 
 
 class BookingStatus(StrEnum):

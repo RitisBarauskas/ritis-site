@@ -70,7 +70,7 @@ def checkout_request(email: str | None = "client@example.com") -> CheckoutReques
     return CheckoutRequest(
         order_id=OrderId("order-1"),
         amount=Money(20000, EUR),
-        description="ritis.dev — звонок 60 минут",
+        description="ritis.dev — Технический старт",
         return_url="https://ritis.dev/api/payments/flitt/return?booking=b1",
         notification_url="https://ritis.dev/api/payments/flitt/notification",
         lifetime_seconds=3600,

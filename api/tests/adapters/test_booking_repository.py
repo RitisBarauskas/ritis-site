@@ -27,7 +27,7 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
     new = Booking.new(
         booking_id=BookingId(booking_id),
         idempotency_key=key,
-        booking_format=BookingFormat.SESSION,
+        booking_format=BookingFormat.START,
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=Money(20000, Currency.EUR),
         now=NOW,

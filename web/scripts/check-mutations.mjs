@@ -63,6 +63,12 @@ const MUTATIONS = [
   M(DIALOG, 'if (cancel.signal.aborted) return;', 'if (false) return;', 'пока ждём API, анкету не поправить'),
   M(DIALOG, 'fields.disabled = true;', 'fields.disabled = false;', 'пока ждём API, анкету не поправить'),
   M(DIALOG, String.raw`required maxlength="100" pattern=".*\S.*"`, 'required maxlength="100"', 'имя из одних пробелов'),
+  M(DIALOG, 'const price = bookingPrice[chosen];', 'const price = bookingPrice.start;', 'формат launch: к оплате'),
+  M(DIALOG, "Сумма засчитается в «Фундамент».'", "'", 'формат foundation: к оплате'),
+  M(DIALOG, '<a href="/offer/" target="_blank">офертой</a>', '<a href="#" target="_blank">офертой</a>', 'согласие в окне брони ведёт на оферту'),
+  // The legal pages.
+  M('src/components/Footer.astro', '<a href="/refund/">Возврат</a>', '<a href="#">Возврат</a>', 'юридические страницы ссылка «Возврат» в подвале'),
+  M('src/pages/offer.astro', '<RefundTerms />', '<ol class="refund"><li>Иначе.</li></ol>', 'условия возврата в оферте и на своей странице'),
   // What each failure of the API turns into.
   M(API, "if (status === 422 && Array.isArray(detail)) return 'invalid';", "if (false) return 'invalid';", 'API не принял анкету'),
   M(API, "['payment_provider_unavailable', 'provider_down'],", '', 'сбой платёжного сервиса'),

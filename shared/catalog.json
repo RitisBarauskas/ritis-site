@@ -1,0 +1,9 @@
+{
+  "currency": "EUR",
+  "call": { "amount_minor": 20000 },
+  "packages": {
+    "foundation": { "from_minor": 200000 },
+    "checkup": { "from_minor": 50000 },
+    "support": { "from_minor": 100000, "per": "month" }
+  }
+}

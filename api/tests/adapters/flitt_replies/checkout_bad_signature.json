@@ -1,0 +1,8 @@
+{
+  "response": {
+    "error_code": 1014,
+    "error_message": "Invalid signature",
+    "request_id": "tlVfnUs1SzBsD",
+    "response_status": "failure"
+  }
+}

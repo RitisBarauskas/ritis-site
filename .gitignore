@@ -22,5 +22,12 @@ web/.astro/
 web/test-results/
 web/playwright-report/
 
+# python
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # local-only: the design prototype is not part of the repository
 prototype/

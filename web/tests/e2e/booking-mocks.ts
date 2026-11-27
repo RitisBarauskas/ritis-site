@@ -9,8 +9,8 @@ export function booking(status: string, checkoutUrl: string | null = null, canRe
     id: ID,
     status,
     format: 'start',
-    amount_minor: 20000,
-    currency: 'EUR',
+    amount_minor: 60000,
+    currency: 'GEL',
     checkout_url: checkoutUrl,
     can_retry_payment: canRetry,
   };

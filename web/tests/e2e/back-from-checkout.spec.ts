@@ -23,7 +23,7 @@ test.describe('возврат со страницы оплаты кнопкой 
     // Still open: the page came back from the cache, not from a fresh load.
     await expect(page.locator('#book')).toHaveAttribute('open');
     await expect(page.locator('#book-submit')).toBeEnabled();
-    await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
+    await expect(page.locator('#book-submit')).toHaveText('Оплатить 600 ₾ →');
   });
 
   test('страница брони: статус проверяется заново', async ({ page }) => {

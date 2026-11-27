@@ -4,7 +4,7 @@ import { expect, test } from './fixtures';
 // The offer as a customer accepts it: its page (with the refund terms and prices) and the two
 // checkboxes of the booking dialog. Changing any of it makes a new revision of the offer: set
 // offer_revision in shared/catalog.json to the publication date, then update this hash.
-const OFFER_TEXT_SHA256 = 'ee4768d4924637cefa1e903e1067245e8ee896e097023d9f9dcb7b078de66904';
+const OFFER_TEXT_SHA256 = 'c89ea17dda7d136a0ddf35c2f3882e641eec54f3eadfbd3f2c9d9b0701850230';
 
 const PAGES: Array<[string, string, string]> = [
   ['Оферта', '/offer/', 'Публичная оферта'],
@@ -83,10 +83,10 @@ test.describe('юридические страницы', () => {
 
     const nbsp = String.fromCharCode(0xa0);
     expect(formats).toEqual([
-      'Технический старт — €200',
-      'Подготовка к запуску — €500',
-      `Фундамент — от €2${nbsp}000`,
-      `Разработка по подписке — от €1${nbsp}000/мес`,
+      `Технический старт — 600${nbsp}₾`,
+      `Подготовка к запуску — 1${nbsp}500${nbsp}₾`,
+      `Фундамент — от 6${nbsp}000${nbsp}₾`,
+      `Разработка по подписке — от 3${nbsp}000${nbsp}₾/мес`,
     ]);
   });
 });

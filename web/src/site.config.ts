@@ -3,12 +3,15 @@ import catalog from '../../shared/catalog.json';
 
 const NBSP = String.fromCharCode(0xa0); // non-breaking space
 
-/** Whole euros with non-breaking thousands separators, as the page shows them. */
-function euros(amountMinor: number): string {
-  if (catalog.currency !== 'EUR' || amountMinor % 100 !== 0) {
-    throw new Error(`catalog price ${amountMinor} ${catalog.currency} is not whole euros`);
+/**
+ * Whole lari, as the page shows them: "1 500 ₾" with non-breaking spaces. A price offered in
+ * Georgia is stated in lari only (Organic Law on the National Bank of Georgia, art. 34(2¹)).
+ */
+function lari(amountMinor: number): string {
+  if (catalog.currency !== 'GEL' || amountMinor % 100 !== 0) {
+    throw new Error(`catalog price ${amountMinor} ${catalog.currency} is not whole lari`);
   }
-  return '€' + String(amountMinor / 100).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+  return String(amountMinor / 100).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP) + NBSP + '₾';
 }
 
 type BookingFormat = 'start' | 'launch' | 'foundation' | 'subscription' | 'teardown';
@@ -23,14 +26,14 @@ function bookedAt(format: PaidFormat): string {
   const own = formats[format];
   const priced = own.starts_with ? formats[own.starts_with as PaidFormat] : own;
   if (!priced?.price_minor) throw new Error(`catalog: ${format} has no booking price`);
-  return euros(priced.price_minor);
+  return lari(priced.price_minor);
 }
 
 function from(format: PaidFormat): string {
   const { from_minor: amount, per } = formats[format];
   if (!amount) throw new Error(`catalog: ${format} has no package price`);
   if (per && !PER[per]) throw new Error(`catalog: ${format} is priced per ${per}, which the site cannot show`);
-  return `от ${euros(amount)}${per ? PER[per] : ''}`;
+  return `от ${lari(amount)}${per ? PER[per] : ''}`;
 }
 
 /** Prices as the offers show them. */

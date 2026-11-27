@@ -122,7 +122,7 @@ test.describe('оплата из окна брони', () => {
     // The attribute, not visibility: everything in a closed dialog is invisible.
     await expect(page.locator('#book-error')).toHaveAttribute('hidden');
     await expect(page.getByLabel('Почта или Telegram')).toBeEnabled();
-    await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
+    await expect(page.locator('#book-submit')).toHaveText('Оплатить 600 ₾ →');
   });
 
   test('API молчит: через 20 секунд понятное сообщение', async ({ page }) => {
@@ -156,7 +156,7 @@ test.describe('оплата из окна брони', () => {
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-error')).toHaveText(/Платёжный сервис сейчас не отвечает/);
     await expect(page.locator('#book-submit')).toBeEnabled();
-    await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
+    await expect(page.locator('#book-submit')).toHaveText('Оплатить 600 ₾ →');
 
     await page.locator('#book-submit').click();
     await expect(page).toHaveURL(CHECKOUT);

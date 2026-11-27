@@ -44,10 +44,10 @@ def test_reads_the_catalog_the_site_is_built_from() -> None:
 
     euros = {fmt: catalog.offer(fmt).price for fmt in BookingFormat}
     assert euros == {
-        BookingFormat.START: Money(20000, Currency.EUR),
-        BookingFormat.LAUNCH: Money(50000, Currency.EUR),
-        BookingFormat.FOUNDATION: Money(20000, Currency.EUR),
-        BookingFormat.SUBSCRIPTION: Money(20000, Currency.EUR),
+        BookingFormat.START: Money(60000, Currency.GEL),
+        BookingFormat.LAUNCH: Money(150000, Currency.GEL),
+        BookingFormat.FOUNDATION: Money(60000, Currency.GEL),
+        BookingFormat.SUBSCRIPTION: Money(60000, Currency.GEL),
     }
     assert catalog.offer_revision == date(2026, 11, 27)
     # The customer sees at the payment provider which format they paid for.

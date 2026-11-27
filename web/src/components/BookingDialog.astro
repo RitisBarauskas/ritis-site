@@ -41,7 +41,7 @@ import { bookingPrice, payments } from '../site.config';
         <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {bookingPrice.start} →</button>
       </fieldset>
       <p class="dlg-note">
-        Оплата в евро картой Visa или Mastercard. После оплаты я свяжусь с вами, чтобы назначить созвон, и пришлю ссылку на Google Meet.
+        Оплата в лари картой Visa или Mastercard; если карта в другой валюте, курс определит её банк. После оплаты я свяжусь с вами, чтобы назначить созвон, и пришлю ссылку на Google Meet.
       </p>
       {payments.testMode && <p class="dlg-test">Тестовый режим: деньги не списываются, для оплаты подойдёт только тестовая карта.</p>}
     </div>

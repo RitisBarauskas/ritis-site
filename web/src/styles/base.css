@@ -2,6 +2,8 @@
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{margin:0;font-family:var(--sans);font-size:17px;line-height:1.6;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
 img{max-width:100%;display:block}
+/* `hidden` must win over component display rules such as .btn{display:inline-flex} */
+[hidden]{display:none!important}
 /* <Picture> wraps <img>; let the image size against its frame as a bare <img> would */
 picture{display:contents}
 a{color:inherit}

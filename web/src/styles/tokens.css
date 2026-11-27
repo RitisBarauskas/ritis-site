@@ -1,6 +1,7 @@
 :root{
   --bg:#F5F1EA; --surface:#FFFFFF; --ink:#151412; --muted:#6A655D; --line:#E3DDD2; --grid:rgba(21,20,18,.06);
   --accent:#E2A32B; --accent-ink:#151412; --accent-soft:#F6E7C6;
+  --danger:#C2410C; /* error text: 4.5:1 or more on --surface, as are the dark theme's */
   --red:#C8402F; --orange:#D9772B; --yellow:#B8952A; --green:#2FA36B;
   --code-bg:#17161A; --code-ink:#ECE8E1; --code-muted:#8C877E;
   --radius:16px; --maxw:1160px;
@@ -10,6 +11,6 @@
 }
 html[data-theme="dark"]{
   --bg:#121110; --surface:#1B1A18; --ink:#EEEAE3; --muted:#A39D93; --line:#2D2B27; --grid:rgba(238,234,227,.05);
-  --accent:#E9AE3A; --accent-ink:#151412; --accent-soft:#3B2F15;
+  --accent:#E9AE3A; --accent-ink:#151412; --accent-soft:#3B2F15; --danger:#FB923C;
   --code-bg:#0C0B0D; color-scheme:dark;
 }

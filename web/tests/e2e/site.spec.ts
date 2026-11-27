@@ -68,6 +68,15 @@ test.describe('страница', () => {
     expect(unsafe).toEqual([]);
   });
 
+  test('обещает только те способы оплаты, что подключены', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.locator('.paychips span')).toHaveText(['Visa', 'Mastercard']);
+    // Not in the offers, the FAQ or the booking dialog until a Russian provider is connected.
+    const text = await page.locator('body').textContent();
+    expect(text).not.toMatch(/«Мир»|СБП/);
+  });
+
   test('цены из каталога, разряды через неразрывный пробел', async ({ page }) => {
     await page.goto('/');
 
@@ -161,7 +170,7 @@ test.describe('демо «Как я работаю с ИИ»', () => {
   });
 });
 
-test.describe('окно брони (заглушка)', () => {
+test.describe('окно брони', () => {
   const triggers: Array<[string, string]> = [
     ['session', 'Час строгого техлида'],
     ['foundation', 'Фундамент: от идеи до репозитория'],
@@ -194,18 +203,6 @@ test.describe('окно брони (заглушка)', () => {
     await page.locator('main [data-book="teardown"]').click();
 
     await expect(page.locator('#book-submit')).toHaveText('Отправить заявку →');
-  });
-
-  test('отправка закрывает окно и показывает сообщение', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('main [data-book="session"]').first().click();
-    await page.getByLabel('Как вас зовут').fill('Тест');
-    await page.getByLabel('Почта или Telegram').fill('test@example.com');
-
-    await page.locator('#book-submit').click();
-
-    await expect(page.locator('#book')).not.toHaveAttribute('open');
-    await expect(page.locator('#toast')).toHaveText(/здесь будет оплата/);
   });
 
   test('клик по затемнению вокруг окна закрывает его', async ({ page }) => {

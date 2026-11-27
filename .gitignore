@@ -29,6 +29,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 api/.mutation-backup
+web/.mutation-backup
 
 # local-only: the design prototype is not part of the repository
 prototype/

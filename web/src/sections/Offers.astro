@@ -1,5 +1,5 @@
 ---
-import { prices } from '../site.config';
+import { payments, prices } from '../site.config';
 ---
 <section class="block" id="help">
   <div class="wrap">
@@ -59,7 +59,11 @@ import { prices } from '../site.config';
       </article>
     </div>
     <p class="note">Любой формат начинается со звонка за {prices.session} — его стоимость засчитывается в пакет. Точную сумму пакета назову на звонке.</p>
-    <div class="paychips" aria-label="Способы оплаты"><span>Visa</span><span>Mastercard</span><span>Мир</span><span>СБП</span><em>Карта любой страны, даже «Мир», — спишется в валюте карты. Из России можно и через СБП, в рублях по курсу на день оплаты.</em></div>
+    {payments.russianMethods ? (
+      <div class="paychips" aria-label="Способы оплаты"><span>Visa</span><span>Mastercard</span><span>Мир</span><span>СБП</span><em>Карта любой страны, даже «Мир», — спишется в валюте карты. Из России можно и через СБП, в рублях по курсу на день оплаты.</em></div>
+    ) : (
+      <div class="paychips" aria-label="Способы оплаты"><span>Visa</span><span>Mastercard</span><em>Оплата в евро картой Visa или Mastercard.</em></div>
+    )}
   </div>
 </section>
 

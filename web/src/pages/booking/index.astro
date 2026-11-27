@@ -1,0 +1,51 @@
+---
+import Base from '../../layouts/Base.astro';
+import { payments } from '../../site.config';
+---
+<Base title="Бронь звонка — ritis.dev" description="Статус оплаты брони звонка.">
+  <section class="block">
+    <div class="wrap">
+      <div class="status" aria-live="polite">
+        <h1 id="booking-title">Проверяем оплату…</h1>
+        <p class="sub" id="booking-text">Это займёт несколько секунд.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button" id="booking-retry" hidden>Оплатить снова →</button>
+          <a class="btn btn-ghost" href="/">На главную</a>
+        </div>
+        {payments.testMode && <p class="note">Тестовый режим: деньги не списываются.</p>}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { BookingApi } from '../../scripts/booking-api';
+  import { BookingStatusPage } from '../../scripts/booking-page';
+  import { byId } from '../../scripts/dom';
+
+  const page = new BookingStatusPage(
+    {
+      title: byId('booking-title', HTMLHeadingElement),
+      text: byId('booking-text', HTMLParagraphElement),
+      retry: byId('booking-retry', HTMLButtonElement),
+    },
+    new BookingApi(),
+    // The provider's notification usually lands within seconds; a minute covers a slow one.
+    { intervalMs: 3000, attempts: 20 },
+  );
+  void page.start(new URLSearchParams(window.location.search));
+  // Back from the checkout restores this page as it was left, mid-poll and with the button
+  // pressed; the booking may have changed since, so check it again from scratch.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) window.location.reload();
+  });
+</script>
+
+<style>
+.status{max-width:640px;padding-block:120px 0}
+.status h1{font-size:clamp(32px,4vw,48px);margin:0 0 16px}
+.status .note{margin-top:24px}
+@media (max-width:640px){
+  .status{padding-block:72px 0}
+}
+</style>

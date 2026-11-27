@@ -1,5 +1,5 @@
 ---
-import { prices } from '../site.config';
+import { payments, prices } from '../site.config';
 ---
 <dialog id="book" aria-labelledby="book-title">
   <form method="dialog" id="book-form">
@@ -24,30 +24,66 @@ import { prices } from '../site.config';
         </select>
       </label>
       <p class="pay" id="pay" aria-live="polite"></p>
-      <label>Как вас зовут<input name="name" required></label>
-      <label>Почта или Telegram<input name="contact" required></label>
-      <label>Что хотите решить?<textarea name="about" placeholder="Пара предложений о задаче"></textarea></label>
-      <label>Ссылки (репозиторий, макеты, документы)<input name="links" placeholder="необязательно"></label>
-      <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} и выбрать время →</button>
-      <p class="dlg-note">Карта любой страны, «Мир» или СБП. После оплаты откроется календарь, ссылка на Google Meet придёт на почту.</p>
+      <label>Как вас зовут<input name="name" required maxlength="100"></label>
+      <label>Почта или Telegram<input name="contact" required minlength="3" maxlength="200"></label>
+      <label>Что хотите решить?<textarea name="about" maxlength="2000" placeholder="Пара предложений о задаче"></textarea></label>
+      <label>Ссылки (репозиторий, макеты, документы)<input name="links" maxlength="1000" placeholder="необязательно"></label>
+      <!-- Hidden from people; bots fill it in, and the API refuses the request. -->
+      <div class="hp" aria-hidden="true"><label>Сайт<input name="website" tabindex="-1" autocomplete="off"></label></div>
+      <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="#">офертой</a> и <a href="#">политикой конфиденциальности</a></label>
+      <p class="dlg-error" id="book-error" role="alert" hidden></p>
+      <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} →</button>
+      <p class="dlg-note">
+        {payments.russianMethods ? 'Картой Visa, Mastercard или «Мир», из России — через СБП.' : 'Оплата в евро картой Visa или Mastercard.'}
+        После оплаты я свяжусь с вами, чтобы выбрать время, и пришлю ссылку на Google Meet.
+      </p>
+      {payments.testMode && <p class="dlg-test">Тестовый режим: деньги не списываются, для оплаты подойдёт только тестовая карта.</p>}
     </div>
   </form>
 </dialog>
 
 <script>
+  import { BookingApi, BookingApiError, failureMessages, type BookingRequest } from '../scripts/booking-api';
   import { all, byId } from '../scripts/dom';
   import { toast } from '../scripts/toast';
   import { packageAccusative, prices, type BookingFormat } from '../site.config';
 
   const dlg = byId('book', HTMLDialogElement);
+  const form = byId('book-form', HTMLFormElement);
   const format = byId('format', HTMLSelectElement);
   const pay = byId('pay', HTMLParagraphElement);
   const submit = byId('book-submit', HTMLButtonElement);
+  const consentRow = byId('consent-row', HTMLLabelElement);
+  const consent = byId('consent', HTMLInputElement);
+  const errorText = byId('book-error', HTMLParagraphElement);
+  const api = new BookingApi();
 
+  /**
+   * One Idempotency-Key per distinct request: a retry of the same request reuses it (the API
+   * answers with the same booking), a corrected form gets a new one.
+   */
+  class RequestKeys {
+    private key = '';
+    private payload = '';
+
+    for(request: BookingRequest): string {
+      const payload = JSON.stringify(request);
+      if (payload !== this.payload) {
+        this.payload = payload;
+        this.key = crypto.randomUUID();
+      }
+      return this.key;
+    }
+  }
+
+  const keys = new RequestKeys();
   const isFree = () => format.value === 'teardown';
   const bold = (text: string) => Object.assign(document.createElement('b'), { textContent: text });
 
   function renderPay(): void {
+    // The free teardown is not paid and needs no consent to a payment offer.
+    consentRow.hidden = isFree();
+    consent.required = !isFree();
     if (isFree()) {
       pay.replaceChildren(bold('Бесплатно.'), ' Если репозиторий подойдёт для ролика, напишу и договоримся о разборе.');
       submit.textContent = 'Отправить заявку →';
@@ -58,14 +94,57 @@ import { prices } from '../site.config';
       bold(`К оплате: ${prices.session}`),
       ' — звонок 60 минут в Google Meet.' + (pkg ? ` Если решим продолжить, сумма засчитается в ${pkg}.` : ''),
     );
-    submit.textContent = `Оплатить ${prices.session} и выбрать время →`;
+    submit.textContent = `Оплатить ${prices.session} →`;
   }
+
+  function requestFrom(data: FormData): BookingRequest {
+    const text = (name: string) => String(data.get(name) ?? '').trim();
+    return {
+      format: format.value,
+      name: text('name'),
+      contact: text('contact'),
+      about: text('about'),
+      links: text('links'),
+      consent: consent.checked,
+      website: String(data.get('website') ?? ''),
+    };
+  }
+
+  function showError(message: string): void {
+    errorText.textContent = message;
+    errorText.hidden = false;
+  }
+
+  async function startPayment(): Promise<void> {
+    const request = requestFrom(new FormData(form));
+    submit.disabled = true;
+    submit.textContent = 'Открываем оплату…';
+    errorText.hidden = true;
+    try {
+      const booking = await api.create(request, keys.for(request));
+      // No open checkout: this request is past paying (repeated after paying, say),
+      // and the booking page tells where it stands.
+      window.location.assign(booking.checkout_url ?? `/booking/?id=${encodeURIComponent(booking.id)}`);
+    } catch (error) {
+      showError(failureMessages[BookingApiError.failureOf(error)]);
+      renderPay();
+      submit.disabled = false;
+    }
+  }
+
+  // Back from the checkout restores this page from the back/forward cache as it was left.
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    renderPay();
+    submit.disabled = false;
+  });
 
   format.addEventListener('change', renderPay);
   for (const trigger of all('[data-book]')) {
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
       format.value = trigger.dataset.book ?? 'session';
+      errorText.hidden = true;
       renderPay();
       dlg.showModal();
     });
@@ -74,12 +153,14 @@ import { prices } from '../site.config';
   dlg.addEventListener('click', (event) => {
     if (event.target === dlg) dlg.close();
   });
-  byId('book-form', HTMLFormElement).addEventListener('submit', (event) => {
+  form.addEventListener('submit', (event) => {
     event.preventDefault();
-    dlg.close();
-    toast(isFree()
-      ? 'Демо: заявка на разбор ушла бы мне в Telegram.'
-      : 'Демо: здесь будет оплата, а затем выбор времени в календаре.');
+    if (isFree()) {
+      dlg.close();
+      toast('Демо: заявка на разбор ушла бы мне в Telegram.');
+      return;
+    }
+    void startPayment();
   });
 </script>
 
@@ -95,6 +176,12 @@ dialog::backdrop{background:rgba(15,14,12,.55);backdrop-filter:blur(3px)}
 .stepper span{font:500 11px/1 var(--mono);color:var(--muted)}
 .dlg-body{padding:22px 28px 28px;display:grid;gap:14px}
 label{font-size:13px;font-weight:700;color:var(--muted);display:grid;gap:7px}
+label.consent{display:flex;gap:10px;align-items:flex-start;font-weight:500;line-height:1.45}
+label.consent input{width:auto;margin-top:2px;flex:none}
+label.consent a{color:inherit}
+.hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .pay{margin:0;background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45}
+.dlg-error{margin:0;border:1px solid currentColor;border-radius:12px;padding:10px 14px;font-size:14px;color:var(--danger)}
 .dlg-note{font:500 12.5px/1.5 var(--mono);color:var(--muted);margin:0}
+.dlg-test{margin:0;font:600 12px/1.45 var(--mono);color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:8px 12px}
 </style>

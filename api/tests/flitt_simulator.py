@@ -35,15 +35,19 @@ class FlittSimulator:
 
     def approve(self, order_id: OrderId, charged: Money | None = None) -> None:
         order = self._orders[order_id]
+        # With delayed=N Flitt never charges an order that was declined or has expired.
+        assert order["order_status"] == "created", f"{order_id} is {order['order_status']}"
         amount = charged.amount_minor if charged else order["amount"]
         currency = charged.currency.value if charged else order["currency"]
         order.update(order_status="approved", actual_amount=str(amount), actual_currency=currency)
         order["reversal_amount"] = "0"
 
     def decline(self, order_id: OrderId) -> None:
+        assert self._orders[order_id]["order_status"] == "created"
         self._orders[order_id]["order_status"] = "declined"
 
     def expire(self, order_id: OrderId) -> None:
+        assert self._orders[order_id]["order_status"] == "created"
         self._orders[order_id]["order_status"] = "expired"
 
     def refund(self, order_id: OrderId, amount: Money) -> None:

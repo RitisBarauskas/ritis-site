@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 
 from ritis_api.app.catalog import Catalog
-from ritis_api.app.confirm_payment import ConfirmPayment
 from ritis_api.app.runtime import Clock, IdFactory
 from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer
 from ritis_api.domain.errors import BookingError
@@ -53,7 +52,6 @@ class OpenBooking:
         *,
         repository: BookingRepository,
         provider: PaymentProvider,
-        confirm_payment: ConfirmPayment,
         catalog: Catalog,
         settings: CheckoutSettings,
         clock: Clock,
@@ -61,7 +59,6 @@ class OpenBooking:
     ) -> None:
         self._repository = repository
         self._provider = provider
-        self._confirm_payment = confirm_payment
         self._catalog = catalog
         self._settings = settings
         self._clock = clock
@@ -90,9 +87,12 @@ class OpenBooking:
         return self._open_checkout(booking, order_id)
 
     def retry(self, booking_id: BookingId) -> Booking:
-        """Pay again after a declined or expired checkout; an open checkout is returned as is."""
-        # The provider may know more than we do (a late success, an expiry): ask it first.
-        booking = self._ensure_checkout(self._confirm_payment.refresh(booking_id))
+        """Pay again after a declined or expired checkout; an open checkout is returned as is.
+
+        Safe without asking the provider first: by the port's contract a declined or expired
+        order stays so, so a new order can never be a second charge for the same try.
+        """
+        booking = self._ensure_checkout(self._repository.get(booking_id))
         if booking.open_checkout_url is None:
             raise BookingError(f"booking {booking_id} cannot be paid in {booking.status}")
         return booking

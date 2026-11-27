@@ -55,12 +55,9 @@ def confirm_payment(
 
 @pytest.fixture
 def open_booking(
-    repository: InMemoryBookingRepository,
-    provider: FakeProvider,
-    confirm_payment: ConfirmPayment,
-    clock: Clock,
+    repository: InMemoryBookingRepository, provider: FakeProvider, clock: Clock
 ) -> OpenBooking:
-    return make_open_booking(repository, provider, confirm_payment, clock)
+    return make_open_booking(repository, provider, clock)
 
 
 def make_confirm_payment(
@@ -81,14 +78,12 @@ def make_confirm_payment(
 def make_open_booking(
     repository: BookingRepository,
     provider: FakeProvider,
-    confirm_payment: ConfirmPayment,
     clock: Clock,
     settings: CheckoutSettings = SETTINGS,
 ) -> OpenBooking:
     return OpenBooking(
         repository=repository,
         provider=provider,
-        confirm_payment=confirm_payment,
         catalog=Catalog(call_price=PRICE),
         settings=settings,
         clock=clock,

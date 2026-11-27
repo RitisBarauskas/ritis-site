@@ -18,7 +18,7 @@ Ports and adapters, with the rules in the domain:
 1. `POST /api/bookings` with an `Idempotency-Key` creates the booking and opens a Flitt checkout. The price comes from `shared/catalog.json`, never from the client. Reusing a key for different data is refused.
 2. One checkout is one try (`delayed=N`): after a decline the customer comes back and pays again through a new order.
 3. Flitt notifies `POST /api/payments/flitt/notification`; the customer returns through `/api/payments/flitt/return` and is redirected to the booking page, which polls `GET /api/bookings/{id}`.
-4. A notification is only a signal and the return is only navigation: the order is always re-read from Flitt with a signed request and applied to the booking. Repeats change nothing; polling reaches Flitt at most once per few seconds per order.
+4. A notification is only a signal and the return is only navigation: the order is always re-read from Flitt with a signed request and applied to the booking. Repeats change nothing; polling reaches Flitt at most once per few seconds per order and per running instance.
 5. Whatever the provider reports that contradicts the booking (another amount or currency, a second payment, a refund above the charge) is flagged for a human, never guessed or dropped. Refunds are made in Flitt's merchant portal and picked up the same way.
 
 ## Locally

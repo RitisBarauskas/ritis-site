@@ -92,23 +92,24 @@ def test_a_payment_survives_a_concurrent_change_of_the_booking(
     confirm_payment: ConfirmPayment,
     open_booking: OpenBooking,
 ) -> None:
-    # The first checkout was declined and a second one opened; then the first order turns out
-    # paid after all, and its confirmation races with the second order's expiry.
+    # The first checkout was created at the provider but its reply was lost, so a repeat of the
+    # request opened a second one. The customer pays the second; the orphan expires, and its
+    # notification races with the payment's.
+    provider.lose_next_reply = True
+    with pytest.raises(PaymentProviderError):
+        open_booking.start(start_command())
     booking = open_booking.start(start_command())
-    first = order_of(booking)
-    provider.decline(first)
-    confirm_payment.confirm(first)
-    second = order_of(open_booking.retry(booking.id))
-    provider.approve(first)
-    provider.expire(second)
+    orphan, paid = booking.attempts[0].order_id, order_of(booking)
+    provider.expire(orphan)
+    provider.approve(paid)
 
-    racing = RacingRepository(repository, lambda: confirm_payment.confirm(second), race_on="save")
+    racing = RacingRepository(repository, lambda: confirm_payment.confirm(orphan), race_on="save")
     ours = make_confirm_payment(racing, provider, notifier, clock)
 
-    assert ours.confirm(first).status is BookingStatus.PAID
+    assert ours.confirm(paid).status is BookingStatus.PAID
     stored = repository.get(booking.id)
     assert stored.status is BookingStatus.PAID, "the payment must be written, not lost"
-    assert stored.attempt(second).status.value == "expired"
+    assert stored.attempt(orphan).status.value == "expired", "and so must the competitor's change"
     assert notifier.paid == [booking.id]
 
 
@@ -147,6 +148,33 @@ class TestRefresh:
         provider.approve(order_of(booking))
         assert confirm_payment.refresh(booking.id).status is BookingStatus.PAID
         assert provider.report_calls == 2
+
+    def test_a_clock_set_back_does_not_lock_out_rechecks(
+        self,
+        confirm_payment: ConfirmPayment,
+        provider: FakeProvider,
+        clock: Clock,
+        booking: Booking,
+    ) -> None:
+        confirm_payment.refresh(booking.id)
+        clock.advance(-3600)
+        confirm_payment.refresh(booking.id)
+        assert provider.report_calls == 2
+
+    def test_a_refresh_leaves_another_providers_order_alone(
+        self,
+        confirm_payment: ConfirmPayment,
+        provider: FakeProvider,
+        repository: InMemoryBookingRepository,
+        booking: Booking,
+    ) -> None:
+        stored = repository.get(booking.id)
+        stored.attempts[0].provider = "another-provider"
+        repository.save(stored)
+        provider.approve(order_of(booking))
+
+        assert confirm_payment.refresh(booking.id).status is BookingStatus.AWAITING_PAYMENT
+        assert provider.report_calls == 0
 
     def test_answers_during_a_provider_outage(
         self, confirm_payment: ConfirmPayment, provider: FakeProvider, booking: Booking

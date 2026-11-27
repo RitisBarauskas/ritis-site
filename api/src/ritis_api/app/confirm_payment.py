@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from ritis_api.app.runtime import Clock
 from ritis_api.domain.booking import Booking, BookingStatus
 from ritis_api.domain.identifiers import BookingId, OrderId
+from ritis_api.domain.payment import PaymentAttempt
 from ritis_api.ports.notifications import Notifier
 from ritis_api.ports.payments import PaymentProvider, PaymentProviderError
 from ritis_api.ports.storage import BookingRepository, ConcurrentModificationError
@@ -44,7 +45,7 @@ class ConfirmPayment:
 
     def confirm(self, order_id: OrderId) -> Booking:
         booking = self._repository.find_by_order_id(order_id)
-        if booking is None or booking.attempt(order_id).provider != self._provider.name:
+        if booking is None or not self._holds(booking.attempt(order_id)):
             raise UnknownOrderError(order_id)
         return self._settle(booking, order_id)
 
@@ -56,7 +57,7 @@ class ConfirmPayment:
         booking = self._repository.get(booking_id)
         attempt = booking.current_attempt
         if booking.status is not BookingStatus.AWAITING_PAYMENT or not (
-            attempt and attempt.is_open
+            attempt and attempt.is_open and self._holds(attempt)
         ):
             return booking
         if not self._rechecks.admit(attempt.order_id):
@@ -66,6 +67,10 @@ class ConfirmPayment:
         except PaymentProviderError:
             log.warning("could not re-check order %s", attempt.order_id, exc_info=True)
             return booking
+
+    def _holds(self, attempt: PaymentAttempt) -> bool:
+        """Only the provider that holds an order may settle it."""
+        return attempt.provider == self._provider.name
 
     def _settle(self, booking: Booking, order_id: OrderId) -> Booking:
         report = self._provider.report(order_id)
@@ -111,7 +116,10 @@ class _RecheckGate:
     def admit(self, order_id: OrderId) -> bool:
         now = self._clock()
         with self._lock:
-            self._last = {o: t for o, t in self._last.items() if now - t < self._interval}
+            # A clock set back must not lock re-checks out: a read "from the future" has expired.
+            self._last = {
+                o: t for o, t in self._last.items() if timedelta(0) <= now - t < self._interval
+            }
             if order_id in self._last:
                 return False
             self._last[order_id] = now

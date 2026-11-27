@@ -64,6 +64,18 @@ def test_the_return_url_handed_to_the_provider_leads_back_to_the_booking_page(
     assert provider.report_calls == 0, "the page asks the API; the return itself does not wait"
 
 
+def test_the_notification_url_handed_to_the_provider_reaches_the_handler(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    booking = create(client)
+    provider.approve(last_order(provider))
+    handed_out = urlsplit(provider.checkout_requests[-1].notification_url)
+
+    response = client.post(handed_out.path, json=signed_notification(last_order(provider)))
+    assert (response.status_code, response.text) == (200, "OK")
+    assert client.get(f"/api/bookings/{booking['id']}").json()["status"] == "paid"
+
+
 @pytest.mark.parametrize("query", ["", "?booking=../../etc", "?booking=ABC"])
 def test_a_return_without_a_valid_booking_id(client: TestClient, query: str) -> None:
     response = client.get(f"/api/payments/flitt/return{query}")

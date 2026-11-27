@@ -93,12 +93,11 @@ class TestConcurrentStarts:
         self,
         repository: InMemoryBookingRepository,
         provider: FakeProvider,
-        confirm_payment: ConfirmPayment,
         clock: Clock,
     ) -> None:
-        winner = make_open_booking(repository, provider, confirm_payment, clock)
+        winner = make_open_booking(repository, provider, clock)
         racing = RacingRepository(repository, lambda: winner.start(start_command()), race_on="add")
-        loser = make_open_booking(racing, provider, confirm_payment, clock)
+        loser = make_open_booking(racing, provider, clock)
 
         answer = loser.start(start_command())
 
@@ -112,16 +111,15 @@ class TestConcurrentStarts:
         self,
         repository: InMemoryBookingRepository,
         provider: FakeProvider,
-        confirm_payment: ConfirmPayment,
         clock: Clock,
     ) -> None:
-        competitor = make_open_booking(repository, provider, confirm_payment, clock)
+        competitor = make_open_booking(repository, provider, clock)
         # The competitor repeats the request while ours waits for the provider: it retires our
         # attempt, opens its own checkout and saves first.
         racing = RacingRepository(
             repository, lambda: competitor.start(start_command()), race_on="save"
         )
-        ours = make_open_booking(racing, provider, confirm_payment, clock)
+        ours = make_open_booking(racing, provider, clock)
 
         answer = ours.start(start_command())
 
@@ -150,22 +148,13 @@ class TestRetry:
         assert open_booking.retry(booking.id).open_checkout_url == booking.open_checkout_url
         assert len(provider.checkout_requests) == 1
 
-    def test_asks_the_provider_before_opening_another_order(
-        self, open_booking: OpenBooking, provider: FakeProvider
-    ) -> None:
-        # Paid at the provider, but no notification has reached us yet.
-        booking = open_booking.start(start_command())
-        provider.approve(order_of(booking))
-
-        with pytest.raises(BookingError):
-            open_booking.retry(booking.id)
-        assert len(provider.checkout_requests) == 1, "no second order, no second charge"
-
-    def test_an_expiry_learned_from_the_provider_opens_a_new_order(
-        self, open_booking: OpenBooking, provider: FakeProvider
+    def test_pay_again_after_an_expiry(
+        self, open_booking: OpenBooking, confirm_payment: ConfirmPayment, provider: FakeProvider
     ) -> None:
         booking = open_booking.start(start_command())
         provider.expire(order_of(booking))
+        confirm_payment.confirm(order_of(booking))
+
         again = open_booking.retry(booking.id)
         assert order_of(again) != order_of(booking)
         assert again.open_checkout_url is not None

@@ -170,6 +170,20 @@ class TestPaying:
 
 
 class TestReviewIsSticky:
+    """Whatever the provider reports afterwards, a flagged booking waits for a human."""
+
+    def test_a_failure_while_flagged_keeps_the_flag(self) -> None:
+        booking = with_checkout(new_booking(), O1)
+        booking.apply_report(O1, DECLINED, NOW)
+        with_checkout(booking, O2)
+        # Contradicting reports: the declined order turns out charged, with a wrong amount...
+        booking.apply_report(O1, charged(eur(30000)), NOW)
+        # ...and then the open checkout is declined.
+        assert booking.apply_report(O2, DECLINED, NOW) is True
+
+        assert status(booking) is BookingStatus.NEEDS_REVIEW
+        assert not booking.can_retry_payment, "no new checkout while a human sorts it out"
+
     def test_a_correct_payment_after_a_flag_does_not_clear_it(self) -> None:
         booking = with_checkout(new_booking(), O1)
         booking.apply_report(O1, DECLINED, NOW)

@@ -52,6 +52,8 @@ class FakeProvider:
         self.checkout_requests: list[CheckoutRequest] = []
         # Raised by open_checkout in order; any exception, to also stand for a crash.
         self.open_errors: list[Exception] = []
+        # The next order is created, but its reply never reaches us (a timeout after the fact).
+        self.lose_next_reply = False
         self.report_error: PaymentProviderError | None = None
         self.report_calls = 0
         self._prices: dict[OrderId, Money] = {}
@@ -65,6 +67,9 @@ class FakeProvider:
             raise PaymentProviderError(f"duplicate order {request.order_id}")
         self._prices[request.order_id] = request.amount
         self._reports[request.order_id] = NotCharged(Outcome.PENDING)
+        if self.lose_next_reply:
+            self.lose_next_reply = False
+            raise PaymentProviderError("timeout: the order was created, the reply was lost")
         return Checkout(
             checkout_url=f"https://pay.example/{request.order_id}",
             provider_payment_id=f"pay-{request.order_id}",
@@ -81,14 +86,21 @@ class FakeProvider:
     # --- what happens on the provider's side -------------------------------------------------
 
     def approve(self, order_id: OrderId, charged: Money | None = None) -> None:
+        self._still_open(order_id)
         amount = charged or self._prices[order_id]
         self._reports[order_id] = Charged(amount, Money.zero(amount.currency))
 
     def decline(self, order_id: OrderId) -> None:
+        self._still_open(order_id)
         self._reports[order_id] = NotCharged(Outcome.DECLINED)
 
     def expire(self, order_id: OrderId) -> None:
+        self._still_open(order_id)
         self._reports[order_id] = NotCharged(Outcome.EXPIRED)
+
+    def _still_open(self, order_id: OrderId) -> None:
+        # The port's contract: one checkout is one try, a settled order never changes outcome.
+        assert self._reports[order_id] == NotCharged(Outcome.PENDING), f"{order_id} is settled"
 
     def refund(self, order_id: OrderId, amount: Money) -> None:
         """A refund made in the provider's merchant portal."""

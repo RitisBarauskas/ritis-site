@@ -38,7 +38,7 @@ def client(
     # The same URL builder as the composition root, so the URLs handed out match the routes.
     settings = flitt_checkout_settings("https://ritis.dev", lifetime_seconds=3600)
     app = create_app(
-        open_booking=make_open_booking(repository, provider, confirm_payment, clock, settings),
+        open_booking=make_open_booking(repository, provider, clock, settings),
         confirm_payment=confirm_payment,
         flitt_notifications=FlittNotifications(SIGNER, merchant_id=MERCHANT_ID),
         site_url="https://ritis.dev/",

@@ -120,6 +120,7 @@ def test_paying_a_paid_booking_again_is_a_conflict(
 ) -> None:
     booking = create(client)
     provider.approve(last_order(provider))
+    assert client.get(f"/api/bookings/{booking['id']}").json()["status"] == "paid"
     response = client.post(f"/api/bookings/{booking['id']}/payments")
     assert (response.status_code, response.json()) == (409, {"detail": "booking_conflict"})
 

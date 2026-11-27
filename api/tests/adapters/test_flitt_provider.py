@@ -169,6 +169,12 @@ class TestReport:
         full = provider_answering(replying(recorded("status_reversed")))
         assert full.report(RECORDED_ORDER) == Charged(Money(20000, EUR), Money(20000, EUR))
 
+    def test_recorded_declined_order_of_one_try_checkout(self) -> None:
+        # Recorded after a declined card on an order opened with delayed=N.
+        reply = recorded("status_declined")
+        order_id = OrderId(reply["response"]["order_id"])
+        assert provider_answering(replying(reply)).report(order_id) == NotCharged(Outcome.DECLINED)
+
     def test_the_charge_is_what_the_card_paid_not_what_was_asked(self) -> None:
         reply = signed_status(
             order_status="approved",

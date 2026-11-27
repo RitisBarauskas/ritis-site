@@ -2,20 +2,25 @@
 
 Run from api/: uv run python scripts/check_mutations.py
 
-A mutant counts as caught only when its named test runs and fails (pytest exit code 1). A mutant
-that does not import or collect is reported as broken, not as caught. Each fragment must occur
-exactly once in its file, so a refactoring that moves a rule makes this script fail loudly
-until the mutation is updated.
+A mutant counts as caught only when its named test runs and fails: pytest reports failures and
+no errors. A mutant that does not import, or breaks a fixture, is reported as broken, not as
+caught. Each fragment must occur exactly once in its file, so a refactoring that moves a rule
+makes this script fail loudly until the mutation is updated. The original of the file being
+mutated is kept in .mutation-backup until it is restored, so a run killed half-way is repaired
+by the next one.
 """
 
 from __future__ import annotations
 
+import base64
+import json
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 SRC = Path("src/ritis_api")
+BACKUP = Path(".mutation-backup")
 
 
 @dataclass(frozen=True)
@@ -33,8 +38,14 @@ class Mutation:
         source = original.decode("utf-8")
         if source.count(self.original) != 1:
             raise SystemExit(f"{self.file}: fragment not found exactly once: {self.original!r}")
+        backup = {"file": str(path), "original": base64.b64encode(original).decode()}
+        BACKUP.write_text(json.dumps(backup), encoding="utf-8")
         path.write_bytes(source.replace(self.original, self.mutant).encode("utf-8"))
         return original
+
+    def restore(self, original: bytes) -> None:
+        (SRC / self.file).write_bytes(original)
+        BACKUP.unlink()
 
 
 M = Mutation
@@ -87,6 +98,12 @@ MUTATIONS = [
         "if attempt.status in {attempt_status, AttemptStatus.APPROVED}:",
         "if attempt.status in {attempt_status}:",
         "test_a_failure_after_approval_is_stale",
+    ),
+    M(
+        "domain/booking.py",
+        "self.status is BookingStatus.AWAITING_PAYMENT and attempt is self.current_attempt",
+        "attempt is self.current_attempt",
+        "test_a_failure_while_flagged_keeps_the_flag",
     ),
     M(
         "domain/booking.py",
@@ -177,7 +194,7 @@ MUTATIONS = [
     # Confirming payments.
     M(
         "app/confirm_payment.py",
-        "if booking is None or booking.attempt(order_id).provider != self._provider.name:",
+        "if booking is None or not self._holds(booking.attempt(order_id)):",
         "if booking is None:",
         "test_unknown_orders_and_orders_of_another_provider",
     ),
@@ -189,9 +206,21 @@ MUTATIONS = [
     ),
     M(
         "app/confirm_payment.py",
-        "now - t < self._interval",
-        "True",
+        "timedelta(0) <= now - t < self._interval",
+        "timedelta(0) <= now - t",
         "test_asks_the_provider_at_most_once_per_interval",
+    ),
+    M(
+        "app/confirm_payment.py",
+        "timedelta(0) <= now - t < self._interval",
+        "now - t < self._interval",
+        "test_a_clock_set_back_does_not_lock_out_rechecks",
+    ),
+    M(
+        "app/confirm_payment.py",
+        "return attempt.provider == self._provider.name",
+        "return True",
+        "test_a_refresh_leaves_another_providers_order_alone",
     ),
     M(
         "app/confirm_payment.py",
@@ -260,11 +289,30 @@ MUTATIONS = [
         "!= (booking.format, booking.customer)",
         "test_a_key_reused_for_another_request_is_refused",
     ),
+    # Wiring of Flitt's inbound path.
     M(
-        "app/open_booking.py",
-        "self._ensure_checkout(self._confirm_payment.refresh(booking_id))",
-        "self._ensure_checkout(self._repository.get(booking_id))",
-        "test_asks_the_provider_before_opening_another_order",
+        "http/flitt.py",
+        'notification_url=f"{api_base_url}{NOTIFICATION_PATH}",',
+        'notification_url=f"{api_base_url}{RETURN_PATH}",',
+        "test_the_notification_url_handed_to_the_provider_reaches_the_handler",
+    ),
+    M(
+        "main.py",
+        "merchant_id=settings.flitt_merchant_id, secret_key=secret",
+        'merchant_id=settings.flitt_merchant_id, secret_key="not-the-key"',
+        "test_the_app_is_wired_end_to_end",
+    ),
+    M(
+        "main.py",
+        "merchant_id=settings.flitt_merchant_id, secret_key=secret",
+        "merchant_id=0, secret_key=secret",
+        "test_the_app_is_wired_end_to_end",
+    ),
+    M(
+        "settings.py",
+        "if unknown:",
+        "if False:",
+        "test_a_misspelt_environment_variable_stops_the_start",
     ),
     # HTTP edges.
     M(
@@ -307,7 +355,16 @@ MUTATIONS = [
 ]
 
 
-def run(selection: str) -> int:
+def restore_interrupted_run() -> None:
+    if BACKUP.exists():
+        backup = json.loads(BACKUP.read_text(encoding="utf-8"))
+        Path(backup["file"]).write_bytes(base64.b64decode(backup["original"]))
+        BACKUP.unlink()
+        print(f"restored {backup['file']}, left mutated by an interrupted run")
+
+
+def run(selection: str) -> tuple[int, str]:
+    """Run the selected tests; return pytest's exit code and its summary line."""
     command = [
         "uv",
         "run",
@@ -319,23 +376,35 @@ def run(selection: str) -> int:
         "-k",
         selection,
     ]
-    return subprocess.run(command, capture_output=True, check=False).returncode
+    done = subprocess.run(command, capture_output=True, text=True, check=False)
+    lines = [line for line in done.stdout.splitlines() if line.strip()]
+    return done.returncode, lines[-1] if lines else ""
+
+
+def verdict(code: int, summary: str) -> str:
+    if code == 1 and " failed" in summary and " error" not in summary:
+        return "caught"
+    if code == 0:
+        return "SURVIVED"
+    if code == 5:
+        return "NO SUCH TEST"
+    return f"BROKEN (exit {code})"
 
 
 def main() -> int:
-    if run("not live") != 0:
+    restore_interrupted_run()
+    if run("not live")[0] != 0:
         print("the suite is not green without mutations; fix that first")
         return 1
     survived = []
     for number, mutation in enumerate(MUTATIONS, 1):
         original = mutation.apply()
         try:
-            code = run(mutation.caught_by)
+            outcome = verdict(*run(mutation.caught_by))
         finally:
-            (SRC / mutation.file).write_bytes(original)
-        verdict = {1: "caught", 0: "SURVIVED", 5: "NO SUCH TEST"}.get(code, f"BROKEN (exit {code})")
-        print(f"{number:2} {verdict:<14} {mutation.file}: {mutation.caught_by}")
-        if code != 1:
+            mutation.restore(original)
+        print(f"{number:2} {outcome:<14} {mutation.file}: {mutation.caught_by}")
+        if outcome != "caught":
             survived.append(mutation)
     print(f"{len(MUTATIONS) - len(survived)}/{len(MUTATIONS)} caught")
     return 1 if survived else 0

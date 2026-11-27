@@ -55,7 +55,8 @@ const MUTATIONS = [
   // The booking dialog.
   M(DIALOG, 'if (payload !== this.payload) {', 'if (true) {', 'сбой платёжного сервиса: понятное сообщение и повтор'),
   M(DIALOG, 'if (payload !== this.payload) {', "if (this.key === '') {", 'исправленная после сбоя анкета'),
-  M(DIALOG, 'consent.required = !isFree();', 'consent.required = false;', 'без согласия с офертой'),
+  M(DIALOG, 'if (box) box.required = !isFree();', 'if (box) box.required = false;', 'без согласия с офертой'),
+  M(DIALOG, 'start_immediately: startNow.checked,', 'start_immediately: false,', 'анкета уходит в API и ведёт на страницу оплаты'),
   M(DIALOG, 'tabindex="-1" autocomplete="off"', 'autocomplete="off"', 'ловушка для ботов'),
   M(DIALOG, 'booking.checkout_url ?? `/booking/?id=', 'booking.checkout_url ?? `/?id=', 'повтор уже оплаченной анкеты'),
   M(DIALOG, 'if (!event.persisted) return;', 'return;', 'возврат со страницы оплаты кнопкой «Назад» окно брони'),
@@ -64,11 +65,14 @@ const MUTATIONS = [
   M(DIALOG, 'fields.disabled = true;', 'fields.disabled = false;', 'пока ждём API, анкету не поправить'),
   M(DIALOG, String.raw`required maxlength="100" pattern=".*\S.*"`, 'required maxlength="100"', 'имя из одних пробелов'),
   M(DIALOG, 'const price = bookingPrice[chosen];', 'const price = bookingPrice.start;', 'формат launch: к оплате'),
-  M(DIALOG, "Сумма засчитается в «Фундамент».'", "'", 'формат foundation: к оплате'),
-  M(DIALOG, '<a href="/offer/" target="_blank">офертой</a>', '<a href="#" target="_blank">офертой</a>', 'согласие в окне брони ведёт на оферту'),
+  M(DIALOG, "Сумма засчитается в «Фундамент», если вы его закажете.'", "'", 'формат foundation: к оплате'),
+  M(DIALOG, '<a href="/offer/" target="_blank">оферту</a>', '<a href="#" target="_blank">оферту</a>', 'согласие в окне брони ведёт на оферту'),
   // The legal pages.
   M('src/components/Footer.astro', '<a href="/refund/">Возврат</a>', '<a href="#">Возврат</a>', 'юридические страницы ссылка «Возврат» в подвале'),
   M('src/pages/offer.astro', '<RefundTerms />', '<ol class="refund"><li>Иначе.</li></ol>', 'условия возврата в оферте и на своей странице'),
+  M('src/pages/offer.astro', '<dt>Технический старт — {prices.start}</dt>', '<dt>Технический старт — {prices.launch}</dt>', 'в оферте у каждого формата своя цена'),
+  M('src/pages/offer.astro', '<a href="/refund/">условия возврата</a>', '<a href="/refnd/">условия возврата</a>', 'внутренние ссылки ведут на существующие страницы'),
+  M('src/pages/offer.astro', '<h2 id="refund">', '<h2>', 'внутренние ссылки ведут на существующие страницы'),
   // What each failure of the API turns into.
   M(API, "if (status === 422 && Array.isArray(detail)) return 'invalid';", "if (false) return 'invalid';", 'API не принял анкету'),
   M(API, "['payment_provider_unavailable', 'provider_down'],", '', 'сбой платёжного сервиса'),

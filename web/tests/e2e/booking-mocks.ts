@@ -64,6 +64,12 @@ export async function openDialog(page: Page, format = 'start'): Promise<void> {
   await page.locator(`main [data-book="${format}"]`).first().click();
 }
 
+/** Accepts the offer and asks to start at once: a paid booking needs both. */
+export async function agree(page: Page): Promise<void> {
+  await page.locator('#consent').check();
+  await page.locator('#start-now').check();
+}
+
 export async function fillForm(page: Page, contact = 'test@example.com'): Promise<void> {
   await page.getByLabel('Как вас зовут').fill('Тест');
   await page.getByLabel('Почта или Telegram').fill(contact);

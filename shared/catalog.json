@@ -1,24 +1,25 @@
 {
   "currency": "EUR",
+  "offer_revision": "2026-11-27",
   "formats": {
     "start": {
       "price_minor": 20000,
-      "order": "ritis.dev — Технический старт: репозиторий под вашу задачу"
+      "description": "ritis.dev — Технический старт: репозиторий под вашу задачу"
     },
     "launch": {
       "price_minor": 50000,
-      "order": "ritis.dev — Подготовка к запуску: исправления в вашем репозитории"
+      "description": "ritis.dev — Подготовка к запуску: исправления в вашем репозитории"
     },
     "foundation": {
       "starts_with": "start",
       "from_minor": 200000,
-      "order": "ritis.dev — Технический старт, первый этап «Фундамента»"
+      "description": "ritis.dev — Технический старт, первый этап «Фундамента»"
     },
     "subscription": {
       "starts_with": "start",
       "from_minor": 100000,
       "per": "month",
-      "order": "ritis.dev — Технический старт, первый этап разработки по подписке"
+      "description": "ritis.dev — Технический старт, первый этап разработки по подписке"
     }
   }
 }

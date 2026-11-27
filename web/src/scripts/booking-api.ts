@@ -21,6 +21,7 @@ export interface BookingRequest {
   about: string;
   links: string;
   consent: boolean;
+  start_immediately: boolean;
   website: string; // honeypot: stays empty for people
 }
 

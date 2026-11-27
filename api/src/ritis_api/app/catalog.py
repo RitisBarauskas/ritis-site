@@ -1,4 +1,4 @@
-"""What booking each format costs and how its order reads at the payment provider.
+"""What booking each format costs, how it reads at the provider, and which offer is in force.
 
 Read from shared/catalog.json: the same file the site is built from.
 """
@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Literal, Self
 
@@ -21,7 +22,7 @@ class _Format(BaseModel):
     # A format is booked either at its own price or as the format it starts with.
     price_minor: int | None = Field(default=None, gt=0)
     starts_with: BookingFormat | None = None
-    order: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1, max_length=200)
     # The full price of a package, which the site shows; the booking does not charge it.
     from_minor: int | None = Field(default=None, gt=0)
     per: Literal["month"] | None = None
@@ -36,6 +37,8 @@ class _Format(BaseModel):
 class _CatalogFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
     currency: Currency
+    # The prices are part of the offer: a new price is a new revision of it.
+    offer_revision: date
     formats: dict[BookingFormat, _Format]
 
     @model_validator(mode="after")
@@ -55,12 +58,13 @@ class _CatalogFile(BaseModel):
 @dataclass(frozen=True, slots=True)
 class Offer:
     price: Money  # charged when the format is booked
-    order: str  # what the customer sees at the payment provider
+    description: str  # what the customer sees at the payment provider
 
 
 @dataclass(frozen=True, slots=True)
 class Catalog:
     offers: Mapping[BookingFormat, Offer]
+    offer_revision: date
 
     def offer(self, booking_format: BookingFormat) -> Offer:
         return self.offers[booking_format]
@@ -74,5 +78,6 @@ def load_catalog(path: Path) -> Catalog:
         return Money(own[entry.starts_with or booking_format], parsed.currency)
 
     return Catalog(
-        {fmt: Offer(price(entry, fmt), entry.order) for fmt, entry in parsed.formats.items()}
+        {fmt: Offer(price(entry, fmt), entry.description) for fmt, entry in parsed.formats.items()},
+        parsed.offer_revision,
     )

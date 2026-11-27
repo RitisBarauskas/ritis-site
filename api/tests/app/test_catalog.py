@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -17,15 +18,16 @@ SHARED_CATALOG = Path(__file__).resolve().parents[3] / "shared" / "catalog.json"
 
 VALID: dict[str, Any] = {
     "currency": "EUR",
+    "offer_revision": "2026-11-27",
     "formats": {
-        "start": {"price_minor": 100, "order": "start"},
-        "launch": {"price_minor": 300, "order": "launch"},
-        "foundation": {"starts_with": "start", "from_minor": 1000, "order": "foundation"},
+        "start": {"price_minor": 100, "description": "start"},
+        "launch": {"price_minor": 300, "description": "launch"},
+        "foundation": {"starts_with": "start", "from_minor": 1000, "description": "foundation"},
         "subscription": {
             "starts_with": "start",
             "from_minor": 500,
             "per": "month",
-            "order": "subscription",
+            "description": "subscription",
         },
     },
 }
@@ -47,8 +49,9 @@ def test_reads_the_catalog_the_site_is_built_from() -> None:
         BookingFormat.FOUNDATION: Money(20000, Currency.EUR),
         BookingFormat.SUBSCRIPTION: Money(20000, Currency.EUR),
     }
+    assert catalog.offer_revision == date(2026, 11, 27)
     # The customer sees at the payment provider which format they paid for.
-    assert len({catalog.offer(fmt).order for fmt in BookingFormat}) == len(BookingFormat)
+    assert len({catalog.offer(fmt).description for fmt in BookingFormat}) == len(BookingFormat)
 
 
 def test_a_package_is_booked_at_the_price_of_the_format_it_starts_with(tmp_path: Path) -> None:
@@ -56,7 +59,7 @@ def test_a_package_is_booked_at_the_price_of_the_format_it_starts_with(tmp_path:
 
     assert catalog.offer(BookingFormat.FOUNDATION).price == Money(100, Currency.EUR)
     assert catalog.offer(BookingFormat.LAUNCH).price == Money(300, Currency.EUR)
-    assert catalog.offer(BookingFormat.FOUNDATION).order == "foundation"
+    assert catalog.offer(BookingFormat.FOUNDATION).description == "foundation"
 
 
 def _drop_format(c: dict[str, Any]) -> None:
@@ -64,7 +67,7 @@ def _drop_format(c: dict[str, Any]) -> None:
 
 
 def _unknown_format(c: dict[str, Any]) -> None:
-    c["formats"]["teardown"] = {"price_minor": 100, "order": "free"}
+    c["formats"]["teardown"] = {"price_minor": 100, "description": "free"}
 
 
 def _both_prices(c: dict[str, Any]) -> None:
@@ -91,6 +94,18 @@ def _unknown_field(c: dict[str, Any]) -> None:
     c["formats"]["start"]["discount"] = 5
 
 
+def _old_layout(c: dict[str, Any]) -> None:
+    c["call"] = {"amount_minor": 20000}
+
+
+def _empty_description(c: dict[str, Any]) -> None:
+    c["formats"]["launch"]["description"] = ""
+
+
+def _no_offer_revision(c: dict[str, Any]) -> None:
+    del c["offer_revision"]
+
+
 @pytest.mark.parametrize(
     "breakage",
     [
@@ -102,6 +117,9 @@ def _unknown_field(c: dict[str, Any]) -> None:
         _zero_price,
         _other_currency,
         _unknown_field,
+        _old_layout,
+        _empty_description,
+        _no_offer_revision,
     ],
 )
 def test_rejects_a_broken_catalog(

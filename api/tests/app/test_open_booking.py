@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
@@ -24,7 +26,8 @@ def test_charges_and_names_the_format_that_was_booked(
             BookingFormat.LAUNCH: Offer(Money(50000, Currency.EUR), "запуск"),
             BookingFormat.FOUNDATION: Offer(Money(20000, Currency.EUR), "старт фундамента"),
             BookingFormat.SUBSCRIPTION: Offer(Money(20000, Currency.EUR), "старт подписки"),
-        }
+        },
+        date(2026, 11, 27),
     )
     open_booking = make_open_booking(repository, provider, clock, catalog=catalog)
 
@@ -33,6 +36,17 @@ def test_charges_and_names_the_format_that_was_booked(
     (request,) = provider.checkout_requests
     assert (request.amount, request.description) == (Money(50000, Currency.EUR), "запуск")
     assert booking.price == Money(50000, Currency.EUR)
+
+
+def test_records_which_revision_of_the_offer_the_customer_accepted(
+    repository: InMemoryBookingRepository, provider: FakeProvider, clock: Clock
+) -> None:
+    catalog = Catalog({fmt: Offer(PRICE, "order") for fmt in BookingFormat}, date(2027, 2, 1))
+    open_booking = make_open_booking(repository, provider, clock, catalog=catalog)
+
+    booking = open_booking.start(start_command())
+
+    assert repository.get(booking.id).offer_revision == date(2027, 2, 1)
 
 
 def test_opens_a_checkout_for_the_booked_price(

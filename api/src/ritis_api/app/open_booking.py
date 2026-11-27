@@ -73,6 +73,7 @@ class OpenBooking:
             booking_format=command.booking_format,
             customer=command.customer,
             price=self._catalog.offer(command.booking_format).price,
+            offer_revision=self._catalog.offer_revision,
             now=self._clock(),
         )
         order_id = self._new_attempt(booking)
@@ -138,7 +139,7 @@ class OpenBooking:
         return CheckoutRequest(
             order_id=order_id,
             amount=booking.price,
-            description=self._catalog.offer(booking.format).order,
+            description=self._catalog.offer(booking.format).description,
             return_url=self._settings.return_url(booking.id),
             notification_url=self._settings.notification_url,
             lifetime_seconds=self._settings.lifetime_seconds,

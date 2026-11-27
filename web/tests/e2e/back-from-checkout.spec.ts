@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { answer, booking, CHECKOUT, fakeCheckout, fillForm, ID, openDialog, statusSequence } from './booking-mocks';
+import { agree, answer, booking, CHECKOUT, fakeCheckout, fillForm, ID, openDialog, statusSequence } from './booking-mocks';
 
 // Playwright turns Chrome's back/forward cache off; browsers of real people keep it on,
 // and a page restored from it comes back exactly as it was left. Such a restore fires
@@ -14,7 +14,7 @@ test.describe('возврат со страницы оплаты кнопкой 
     );
     await openDialog(page);
     await fillForm(page);
-    await page.locator('#consent').check();
+    await agree(page);
     await page.locator('#book-submit').click();
     await expect(page).toHaveURL(CHECKOUT);
 

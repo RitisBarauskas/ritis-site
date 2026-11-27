@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
@@ -30,6 +32,7 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
         booking_format=BookingFormat.START,
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=Money(20000, Currency.EUR),
+        offer_revision=date(2026, 11, 27),
         now=NOW,
     )
     new.start_attempt(OrderId("order-1"), "fake", NOW)

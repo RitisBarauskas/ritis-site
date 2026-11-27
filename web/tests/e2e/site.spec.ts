@@ -194,8 +194,8 @@ test.describe('окно брони', () => {
   const charges: Array<[string, string, string]> = [
     ['start', '€200', 'К оплате: €200 — созвон по задаче и репозиторий под неё в течение 5 рабочих дней.'],
     ['launch', '€500', 'К оплате: €500 — исправления пулл-реквестами в вашем репозитории.'],
-    ['foundation', '€200', 'К оплате сейчас: €200 — технический старт, первый этап. Сумма засчитается в «Фундамент».'],
-    ['subscription', '€200', 'К оплате сейчас: €200 — технический старт, первый этап. Сумма засчитается в «Разработку по подписке».'],
+    ['foundation', '€200', 'К оплате сейчас: €200 — технический старт, первый этап. Сумма засчитается в «Фундамент», если вы его закажете.'],
+    ['subscription', '€200', 'К оплате сейчас: €200 — технический старт, первый этап. Сумма засчитается в первый месяц разработки по подписке, если вы её закажете.'],
   ];
   for (const [format, price, text] of charges) {
     test(`формат ${format}: к оплате ${price} и за что`, async ({ page }) => {
@@ -214,6 +214,20 @@ test.describe('окно брони', () => {
     await page.locator('main [data-book="teardown"]').click();
 
     await expect(page.locator('#book-submit')).toHaveText('Отправить заявку →');
+  });
+
+  test('на ширине 390 содержимое окна не вылезает за его края', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.locator('main [data-book="foundation"]').first().click();
+
+    // The honeypot is squeezed to 1px on purpose.
+    const overflowing = await page.locator('#book .dlg-body *').evaluateAll((all) =>
+      all
+        .filter((el) => !el.closest('.hp') && el.scrollWidth > el.clientWidth + 1)
+        .map((el) => el.outerHTML.slice(0, 80)));
+
+    expect(overflowing).toEqual([]);
   });
 
   test('клик по затемнению вокруг окна закрывает его', async ({ page }) => {

@@ -34,7 +34,9 @@ import { bookingPrice, payments } from '../site.config';
         <!-- Hidden from people; bots fill it in, and the API refuses the request. Named so that
              autofill leaves it alone. -->
         <div class="hp" aria-hidden="true"><label>Дополнительно<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
-        <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="/offer/" target="_blank">офертой</a> и <a href="/privacy/" target="_blank">политикой конфиденциальности</a></label>
+        <label class="consent paid-only"><input type="checkbox" name="consent" id="consent" required><span>Принимаю <a href="/offer/" target="_blank">оферту</a>, с <a href="/privacy/" target="_blank">политикой конфиденциальности</a> ознакомлен</span></label>
+        <!-- Without this request the refund terms could not keep the cost of work already done. -->
+        <label class="consent paid-only"><input type="checkbox" name="start_immediately" id="start-now" required><span>Прошу начать работу сразу после оплаты. Если откажусь, оплачу уже выполненную часть работы, а после передачи результата отказаться будет нельзя, кроме случаев его недостатков</span></label>
         <p class="dlg-error" id="book-error" role="alert" hidden></p>
         <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {bookingPrice.start} →</button>
       </fieldset>
@@ -58,8 +60,10 @@ import { bookingPrice, payments } from '../site.config';
   const pay = byId('pay', HTMLParagraphElement);
   const fields = byId('book-fields', HTMLFieldSetElement);
   const submit = byId('book-submit', HTMLButtonElement);
-  const consentRow = byId('consent-row', HTMLLabelElement);
   const consent = byId('consent', HTMLInputElement);
+  const startNow = byId('start-now', HTMLInputElement);
+  // Rows that only a paid format needs: the free teardown accepts no offer.
+  const paidOnly = all('.paid-only', dlg).map((row) => [row, row.querySelector('input')] as const);
   const errorText = byId('book-error', HTMLParagraphElement);
   const api = new BookingApi();
 
@@ -95,19 +99,20 @@ import { bookingPrice, payments } from '../site.config';
     },
     foundation: {
       label: 'К оплате сейчас',
-      text: ' — технический старт, первый этап. Сумма засчитается в «Фундамент».',
+      text: ' — технический старт, первый этап. Сумма засчитается в «Фундамент», если вы его закажете.',
     },
     subscription: {
       label: 'К оплате сейчас',
-      text: ' — технический старт, первый этап. Сумма засчитается в «Разработку по подписке».',
+      text: ' — технический старт, первый этап. Сумма засчитается в первый месяц разработки по подписке, если вы её закажете.',
     },
   };
   const bold = (text: string) => Object.assign(document.createElement('b'), { textContent: text });
 
   function renderPay(): void {
-    // The free teardown is not paid and needs no consent to a payment offer.
-    consentRow.hidden = isFree();
-    consent.required = !isFree();
+    for (const [row, box] of paidOnly) {
+      row.hidden = isFree();
+      if (box) box.required = !isFree();
+    }
     if (isFree()) {
       pay.replaceChildren(bold('Бесплатно.'), ' Если репозиторий подойдёт для ролика, напишу и договоримся о разборе.');
       submit.textContent = 'Отправить заявку →';
@@ -128,6 +133,7 @@ import { bookingPrice, payments } from '../site.config';
       about: text('about'),
       links: text('links'),
       consent: consent.checked,
+      start_immediately: startNow.checked,
       website: String(data.get('leave_empty') ?? ''),
     };
   }

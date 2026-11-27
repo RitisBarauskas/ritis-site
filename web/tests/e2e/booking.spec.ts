@@ -1,5 +1,6 @@
 import type { Request, Route } from '@playwright/test';
 import {
+  agree,
   answer,
   asksAgain,
   booking,
@@ -24,7 +25,7 @@ test.describe('оплата из окна брони', () => {
     });
     await openDialog(page);
     await fillForm(page);
-    await page.locator('#consent').check();
+    await agree(page);
 
     await page.locator('#book-submit').click();
 
@@ -39,13 +40,27 @@ test.describe('оплата из окна брони', () => {
       about: '',
       links: '',
       consent: true,
+      start_immediately: true,
       website: '',
     });
+  });
+
+  test('без просьбы начать работу сразу анкета не уходит', async ({ page }) => {
+    await openDialog(page);
+    await fillForm(page);
+    await page.locator('#consent').check();
+
+    await page.locator('#book-submit').click();
+
+    // The refund terms keep the cost of work done only if the customer asked to start at once.
+    await expect(page.locator('#start-now:invalid')).toHaveCount(1);
+    await expect(page.locator('#book')).toHaveAttribute('open');
   });
 
   test('без согласия с офертой анкета не уходит', async ({ page }) => {
     await openDialog(page);
     await fillForm(page);
+    await page.locator('#start-now').check();
 
     await page.locator('#book-submit').click();
 
@@ -73,7 +88,7 @@ test.describe('оплата из окна брони', () => {
     await openDialog(page);
     await fillForm(page);
     await page.getByLabel('Как вас зовут').fill('   ');
-    await page.locator('#consent').check();
+    await agree(page);
 
     await page.locator('#book-submit').click();
 
@@ -89,7 +104,7 @@ test.describe('оплата из окна брони', () => {
     });
     await openDialog(page);
     await fillForm(page);
-    await page.locator('#consent').check();
+    await agree(page);
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-submit')).toHaveText('Открываем оплату…');
     await expect(page.getByLabel('Почта или Telegram')).toBeDisabled();
@@ -115,7 +130,7 @@ test.describe('оплата из окна брони', () => {
     await page.route('**/api/bookings', () => new Promise<void>(() => {}));
     await openDialog(page);
     await fillForm(page);
-    await page.locator('#consent').check();
+    await agree(page);
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-submit')).toHaveText('Открываем оплату…');
 
@@ -136,7 +151,7 @@ test.describe('оплата из окна брони', () => {
     });
     await openDialog(page);
     await fillForm(page);
-    await page.locator('#consent').check();
+    await agree(page);
 
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-error')).toHaveText(/Платёжный сервис сейчас не отвечает/);
@@ -156,7 +171,7 @@ test.describe('оплата из окна брони', () => {
     });
     await openDialog(page);
     await fillForm(page, 'tpyo@example.com');
-    await page.locator('#consent').check();
+    await agree(page);
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-error')).toBeVisible();
 
@@ -180,7 +195,7 @@ test.describe('оплата из окна брони', () => {
       await page.route('**/api/bookings', reply);
       await openDialog(page);
       await fillForm(page);
-      await page.locator('#consent').check();
+      await agree(page);
 
       await page.locator('#book-submit').click();
 
@@ -194,7 +209,7 @@ test.describe('оплата из окна брони', () => {
     await statusSequence(page, [answer('paid')]);
     await openDialog(page);
     await fillForm(page);
-    await page.locator('#consent').check();
+    await agree(page);
 
     await page.locator('#book-submit').click();
 
@@ -204,7 +219,9 @@ test.describe('оплата из окна брони', () => {
 
   test('бесплатный разбор не просит согласия и не ходит в API', async ({ page }) => {
     await openDialog(page, 'teardown');
-    await expect(page.locator('#consent-row')).toBeHidden();
+    // No offer to accept: both checkboxes of a paid booking are gone.
+    await expect(page.locator('#book .paid-only')).toHaveCount(2);
+    for (const row of await page.locator('#book .paid-only').all()) await expect(row).toBeHidden();
     await fillForm(page);
     const sent = requested(page, '**/api/**');
 

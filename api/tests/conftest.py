@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
@@ -15,7 +15,10 @@ from ritis_api.ports.storage import BookingRepository
 from tests.fakes import Clock, FakeProvider, Ids, RecordingNotifier
 
 PRICE = Money(20000, Currency.EUR)
-CATALOG = Catalog({fmt: Offer(PRICE, f"ritis.dev — {fmt.value}") for fmt in BookingFormat})
+OFFER_REVISION = date(2026, 11, 27)
+CATALOG = Catalog(
+    {fmt: Offer(PRICE, f"ritis.dev — {fmt.value}") for fmt in BookingFormat}, OFFER_REVISION
+)
 RECHECK = timedelta(seconds=5)
 SETTINGS = CheckoutSettings(
     return_url_template="https://api.example/return?booking={booking_id}",

@@ -11,11 +11,12 @@ function euros(amountMinor: number): string {
   return '€' + String(amountMinor / 100).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
 }
 
-export type BookingFormat = 'start' | 'launch' | 'foundation' | 'subscription' | 'teardown';
+type BookingFormat = 'start' | 'launch' | 'foundation' | 'subscription' | 'teardown';
 export type PaidFormat = Exclude<BookingFormat, 'teardown'>;
 
-const formats: Record<PaidFormat, { price_minor?: number; starts_with?: string; from_minor?: number }> =
-  catalog.formats;
+type CatalogFormat = { price_minor?: number; starts_with?: string; from_minor?: number; per?: string };
+const formats: Record<PaidFormat, CatalogFormat> = catalog.formats;
+const PER: Record<string, string> = { month: '/мес' };
 
 /** What booking a format charges: its own price, or the price of the format it starts with. */
 function bookedAt(format: PaidFormat): string {
@@ -26,9 +27,10 @@ function bookedAt(format: PaidFormat): string {
 }
 
 function from(format: PaidFormat): string {
-  const amount = formats[format].from_minor;
+  const { from_minor: amount, per } = formats[format];
   if (!amount) throw new Error(`catalog: ${format} has no package price`);
-  return `от ${euros(amount)}`;
+  if (per && !PER[per]) throw new Error(`catalog: ${format} is priced per ${per}, which the site cannot show`);
+  return `от ${euros(amount)}${per ? PER[per] : ''}`;
 }
 
 /** Prices as the offers show them. */
@@ -36,7 +38,7 @@ export const prices = {
   start: bookedAt('start'),
   launch: bookedAt('launch'),
   foundation: from('foundation'),
-  subscription: `${from('subscription')}/мес`,
+  subscription: from('subscription'),
 } as const;
 
 /** What the booking dialog charges now for each paid format. */
@@ -63,6 +65,14 @@ export const merchant = {
   registry: 'Национальное агентство публичного реестра Грузии',
   country: 'Грузия',
 } as const;
+
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+
+/** The offer in force, from the catalog the API stamps on every booking; the refund terms share it. */
+export const offerRevision = (() => {
+  const [year, month, day] = catalog.offer_revision.split('-').map(Number);
+  return `${day} ${MONTHS[month - 1]} ${year} года`;
+})();
 
 export const payments = {
   // Flitt's test merchant: no real money moves. Switched off with the real merchant account.

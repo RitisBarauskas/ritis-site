@@ -323,14 +323,14 @@ MUTATIONS = [
     ),
     M(
         "app/open_booking.py",
-        "description=self._catalog.offer(booking.format).order,",
-        "description=next(iter(self._catalog.offers.values())).order,",
+        "description=self._catalog.offer(booking.format).description,",
+        "description=next(iter(self._catalog.offers.values())).description,",
         "test_charges_and_names_the_format_that_was_booked",
     ),
     M(
         "app/catalog.py",
         "own[entry.starts_with or booking_format]",
-        "own[booking_format]",
+        "entry.from_minor or own[booking_format]",
         "test_a_package_is_booked_at_the_price_of_the_format_it_starts_with",
     ),
     M(
@@ -375,6 +375,18 @@ MUTATIONS = [
         'raise ValueError("the policies must be accepted before paying")',
         "pass",
         "no-consent",
+    ),
+    M(
+        "http/schemas.py",
+        'raise ValueError("work starts right after payment, and the customer must ask for it")',
+        "pass",
+        "no-start-request",
+    ),
+    M(
+        "app/open_booking.py",
+        "offer_revision=self._catalog.offer_revision,",
+        "offer_revision=self._catalog.offer_revision.replace(year=2000),",
+        "test_records_which_revision_of_the_offer_the_customer_accepted",
     ),
     M("http/schemas.py", 'raise ValueError("rejected")', "pass", "honeypot"),
     M(

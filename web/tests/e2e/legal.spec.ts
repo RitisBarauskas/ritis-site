@@ -23,16 +23,28 @@ test.describe('юридические страницы', () => {
     await page.goto('/');
     await page.locator('main [data-book="start"]').first().click();
 
-    const consent = page.locator('#consent-row');
+    const consent = page.locator('#book');
 
-    await expect(consent.getByRole('link', { name: 'офертой' })).toHaveAttribute('href', '/offer/');
+    await expect(consent.getByRole('link', { name: 'оферту' })).toHaveAttribute('href', '/offer/');
     await expect(consent.getByRole('link', { name: 'политикой конфиденциальности' })).toHaveAttribute('href', '/privacy/');
   });
 
-  test('на страницах нет ссылок в никуда', async ({ page }) => {
+  test('внутренние ссылки ведут на существующие страницы и разделы', async ({ page, request }) => {
+    const links = new Set<string>();
     for (const path of ['/', ...PAGES.map(([, p]) => p)]) {
       await page.goto(path);
       await expect(page.locator('a[href="#"]'), path).toHaveCount(0);
+      const hrefs = await page.locator('a[href^="/"]').evaluateAll((all) => all.map((a) => a.getAttribute('href') ?? ''));
+      for (const href of hrefs) links.add(href);
+    }
+
+    for (const link of links) {
+      const [path, section] = link.split('#');
+      expect((await request.get(path)).status(), link).toBe(200);
+      if (section) {
+        await page.goto(path);
+        await expect(page.locator(`#${section}`), link).toHaveCount(1);
+      }
     }
   });
 
@@ -45,13 +57,18 @@ test.describe('юридические страницы', () => {
     await expect(page.locator('#refund + ol.refund')).toHaveText(standalone);
   });
 
-  test('цены в оферте те же, что в блоке форматов', async ({ page }) => {
-    await page.goto('/');
-    const offered = await page.locator('#help .price b').allTextContents();
-
+  test('в оферте у каждого формата своя цена', async ({ page }) => {
     await page.goto('/offer/');
-    const terms = await page.locator('dl dt').allTextContents();
 
-    for (const price of offered) expect(terms.join(' ')).toContain(price);
+    // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
+    const formats = await page.locator('dl.formats dt').allTextContents();
+
+    const nbsp = String.fromCharCode(0xa0);
+    expect(formats).toEqual([
+      'Технический старт — €200',
+      'Подготовка к запуску — €500',
+      `Фундамент — от €2${nbsp}000`,
+      `Разработка по подписке — от €1${nbsp}000/мес`,
+    ]);
   });
 });

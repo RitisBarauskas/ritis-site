@@ -1,9 +1,21 @@
-// Prices and currency are not final: every price on the page is taken from here.
+// Prices live in shared/catalog.json, the same file the API charges by; they are not final.
+import catalog from '../../shared/catalog.json';
+
+const NBSP = String.fromCharCode(0xa0); // non-breaking space
+
+/** Whole euros with non-breaking thousands separators, as the page shows them. */
+function euros(amountMinor: number): string {
+  if (catalog.currency !== 'EUR' || amountMinor % 100 !== 0) {
+    throw new Error(`catalog price ${amountMinor} ${catalog.currency} is not whole euros`);
+  }
+  return '€' + String(amountMinor / 100).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+}
+
 export const prices = {
-  session: '€200',
-  foundation: 'от €2 000',
-  checkup: 'от €500',
-  support: 'от €1 000/мес',
+  session: euros(catalog.call.amount_minor),
+  foundation: `от ${euros(catalog.packages.foundation.from_minor)}`,
+  checkup: `от ${euros(catalog.packages.checkup.from_minor)}`,
+  support: `от ${euros(catalog.packages.support.from_minor)}/мес`,
 } as const;
 
 export const links = {

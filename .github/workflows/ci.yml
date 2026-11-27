@@ -53,3 +53,48 @@ jobs:
           path: web/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  api:
+    name: api
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Only GitHub-owned actions are allowed here, so uv comes from PyPI; it installs Python 3.13.
+      - name: Install uv
+        run: pipx install uv==0.11.7
+
+      - run: uv sync --locked
+
+      - name: Lint and format
+        run: uv run ruff check . && uv run ruff format --check .
+
+      - name: Types
+        run: uv run mypy
+
+      # Live tests against Flitt are excluded by default (pytest -m live runs them).
+      - name: Tests
+        run: uv run pytest
+
+      # Each key rule is broken in turn and its own test must fail: green tests that cannot
+      # fail would prove nothing.
+      - name: Tests catch broken rules
+        run: uv run python scripts/check_mutations.py
+
+  # The one check main requires. A new job only needs adding to `needs`: any failed, cancelled
+  # or skipped job turns this red.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [web, api]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job passed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1

@@ -53,3 +53,44 @@ jobs:
           path: web/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  api:
+    name: api
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Only GitHub-owned actions are allowed here, so uv comes from PyPI; it installs Python 3.13.
+      - name: Install uv
+        run: pipx install uv==0.11.7
+
+      - run: uv sync --locked
+
+      - name: Lint and format
+        run: uv run ruff check . && uv run ruff format --check .
+
+      - name: Types
+        run: uv run mypy
+
+      # Live tests against Flitt are excluded by default (pytest -m live runs them).
+      - name: Tests
+        run: uv run pytest
+
+  # The one check main requires: new jobs join here without touching the branch rules.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs: [web, api]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every job passed
+        run: |
+          echo "web: ${{ needs.web.result }}, api: ${{ needs.api.result }}"
+          test "${{ needs.web.result }}" = success
+          test "${{ needs.api.result }}" = success

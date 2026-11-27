@@ -10,7 +10,7 @@ import { payments } from '../../site.config';
         <p class="sub" id="booking-text">Это займёт несколько секунд.</p>
         <div class="cta-row">
           <button class="btn btn-primary" type="button" id="booking-retry" hidden>Оплатить снова →</button>
-          <a class="btn btn-primary" id="booking-resume" hidden>Вернуться к оплате →</a>
+          <a class="btn btn-ghost" id="booking-resume" hidden>Вернуться к оплате →</a>
           <a class="btn btn-ghost" href="/">На главную</a>
         </div>
         {payments.testMode && <p class="note">Тестовый режим: деньги не списываются.</p>}

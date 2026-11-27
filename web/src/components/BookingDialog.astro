@@ -26,14 +26,14 @@ import { payments, prices } from '../site.config';
           </select>
         </label>
         <p class="pay" id="pay" aria-live="polite"></p>
-        <!-- The API trims spaces: a name needs a letter, a contact three characters besides them. -->
+        <!-- The API trims spaces: a name needs a character besides them, a contact three. -->
         <label>Как вас зовут<input name="name" required maxlength="100" pattern=".*\S.*"></label>
         <label>Почта или Telegram<input name="contact" required maxlength="200" pattern="\s*\S.+\S\s*"></label>
         <label>Что хотите решить?<textarea name="about" maxlength="2000" placeholder="Пара предложений о задаче"></textarea></label>
         <label>Ссылки (репозиторий, макеты, документы)<input name="links" maxlength="1000" placeholder="необязательно"></label>
         <!-- Hidden from people; bots fill it in, and the API refuses the request. Named so that
              autofill leaves it alone. -->
-        <div class="hp" aria-hidden="true"><label>Не заполняйте<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
+        <div class="hp" aria-hidden="true"><label>Дополнительно<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
         <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="#">офертой</a> и <a href="#">политикой конфиденциальности</a></label>
         <p class="dlg-error" id="book-error" role="alert" hidden></p>
         <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} →</button>

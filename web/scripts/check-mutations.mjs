@@ -1,10 +1,11 @@
-// Prove that the browser tests can fail: break each rule of the booking flow and expect its own
-// test to catch it. Run from web/: npm run mutations
+// Prove that the browser tests can fail: break each key rule of the booking flow and expect its
+// own tests to catch it. Run from web/: npm run mutations
 //
 // A mutant counts as caught only when its named tests run and fail. A mutant that breaks the
-// build, or names no test, is reported as broken, not as caught. Each fragment must occur exactly
-// once in its file, so a refactoring that moves a rule makes this script fail loudly until the
-// mutation is updated. The original of the file being mutated is kept in .mutation-backup until
+// build or a page script (the guard in tests/e2e/fixtures.ts marks that), or names no test, is
+// reported as broken, not as caught; one mutant breaks a script on purpose, so that this path is
+// proven on every run. Each fragment must occur exactly once in its file, so a refactoring that
+// moves a rule makes this script fail loudly until the mutation is updated. The original of the file being mutated is kept in .mutation-backup until
 // it is restored, so a run killed half-way is repaired by the next one.
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -15,11 +16,14 @@ const BACKUP = `${root}.mutation-backup`;
 const PLAYWRIGHT = `${root}node_modules/@playwright/test/cli.js`;
 
 class Mutation {
-  /** @param {string} caughtBy the start of the title of the tests that must fail */
-  constructor(file, original, mutant, caughtBy) {
+  /**
+   * @param {string} caughtBy the start of the title of the tests that must fail
+   * @param {string} expected the verdict this mutant must get
+   */
+  constructor(file, original, mutant, caughtBy, expected = 'caught') {
     // A Windows checkout has CRLF line endings and CI has LF: a fragment must not span lines.
     if (original.includes('\n')) throw new Error(`${file}: fragment spans lines: ${original}`);
-    Object.assign(this, { file, original, mutant, caughtBy });
+    Object.assign(this, { file, original, mutant, caughtBy, expected });
   }
 
   /** Write the mutant and return the file's original bytes, to be restored as they were. */
@@ -55,30 +59,36 @@ const MUTATIONS = [
   M(DIALOG, 'tabindex="-1" autocomplete="off"', 'autocomplete="off"', 'ловушка для ботов'),
   M(DIALOG, 'booking.checkout_url ?? `/booking/?id=', 'booking.checkout_url ?? `/?id=', 'повтор уже оплаченной анкеты'),
   M(DIALOG, 'if (!event.persisted) return;', 'return;', 'возврат со страницы оплаты кнопкой «Назад» окно брони'),
-  M(DIALOG, "dlg.addEventListener('close', () => pending?.abort());", "dlg.addEventListener('close', () => {});", 'закрытое во время запроса окно'),
+  M(DIALOG, "dlg.addEventListener('close', () => pending?.abort());", "dlg.addEventListener('close', () => {});", 'пока ждём API, анкету не поправить'),
+  M(DIALOG, 'if (cancel.signal.aborted) return;', 'if (false) return;', 'пока ждём API, анкету не поправить'),
+  M(DIALOG, 'fields.disabled = true;', 'fields.disabled = false;', 'пока ждём API, анкету не поправить'),
   M(DIALOG, String.raw`required maxlength="100" pattern=".*\S.*"`, 'required maxlength="100"', 'имя из одних пробелов'),
   // What each failure of the API turns into.
   M(API, "if (status === 422 && Array.isArray(detail)) return 'invalid';", "if (false) return 'invalid';", 'API не принял анкету'),
   M(API, "['payment_provider_unavailable', 'provider_down'],", '', 'сбой платёжного сервиса'),
-  M(API, "throw new BookingApiError('network');", "throw new BookingApiError('server');", 'нет связи с сервером'),
+  M(API, "new BookingApiError(timedOut ? 'timeout' : 'network');", "new BookingApiError('server');", 'нет связи с сервером'),
+  M(API, "new BookingApiError(timedOut ? 'timeout' : 'network');", "new BookingApiError('network');", 'API молчит'),
   M(API, "if (typeof detail === 'string')", "if (status === 404) return 'not_found'; if (typeof detail === 'string')", 'по адресу API ничего нет'),
   M(API, 'if (response.ok && isBookingView(body)) return body;', 'if (response.ok) return body as BookingView;', 'API ответил непонятно'),
   // The booking page.
   M(PAGE, 'if (!id || !BOOKING_ID.test(id)) {', 'if (!id) {', 'ссылка без брони не ходит в API'),
   M(PAGE, 'attempt <= this.poll.attempts', 'attempt < this.poll.attempts', 'опрос не бесконечный'),
-  M(PAGE, "booking.status === 'awaiting_payment' && booking.checkout_url !== null;", "booking.status === 'awaiting_payment';", 'оплату не удалось открыть: страница не ждёт впустую'),
+  M(PAGE, "booking.status === 'awaiting_payment' && !booking.can_retry_payment;", "booking.status === 'awaiting_payment';", 'оплату не удалось открыть: страница не ждёт впустую'),
+  M(PAGE, 'this.show(STILL_WAITING, { resume: waiting.checkout_url });', 'this.show(STILL_WAITING);', 'опрос не бесконечный'),
   M(PAGE, "if (failure === 'not_found') return;", 'return;', 'временный сбой связи не останавливает опрос'),
   M(PAGE, "if (failure === 'not_found') return;", 'if (false) return;', 'бронь, которой нет у API: больше не спрашивает'),
   M(PAGE, 'retry: booking.can_retry_payment,', 'retry: true,', 'оплачено'),
   M(PAGE, 'resume: inFlight(booking) ? booking.checkout_url : null,', 'resume: null,', 'оплата открыта: можно вернуться к ней'),
   M(PAGE, 'this.view.retry.hidden = !actions.retry;', 'this.view.retry.hidden = true;', 'Оплата не прошла: «Оплатить снова»'),
   M(PAGE, "if (failure === 'conflict') return this.watch(id);", 'if (false) return this.watch(id);', '«Оплатить снова», а бронь тем временем оплачена'),
-  M(PAGE, 'text: failureMessages[failure] }, { retry: true });', 'text: failureMessages[failure] });', '«Оплатить снова», а платёжный сервис не отвечает'),
+  M(PAGE, "{ retry: failure !== 'not_found' });", '{});', '«Оплатить снова», а платёжный сервис не отвечает'),
   M('src/pages/booking/index.astro', 'if (event.persisted) window.location.reload();', 'if (false) window.location.reload();', 'возврат со страницы оплаты кнопкой «Назад» страница брони'),
   // Shared pieces the booking flow relies on.
   M('src/styles/base.css', '[hidden]{display:none!important}', '', 'оплата на проверке'),
   M('src/sections/Offers.astro', '<span>Visa</span><span>Mastercard</span><em>', '<span>Visa</span><span>Mastercard</span><span>Мир</span><em>', 'обещает только те способы оплаты'),
   M('src/components/Header.astro', '<a href="/#help">', '<a href="#help">', 'шапка ведёт на разделы главной'),
+  // Proves the broken-script path: this one must not count as caught.
+  M(DIALOG, "byId('book-fields', HTMLFieldSetElement)", "byId('no-such-id', HTMLFieldSetElement)", 'анкета уходит в API', 'BROKEN (script)'),
 ];
 
 function restoreInterruptedRun() {
@@ -124,7 +134,7 @@ function main() {
     console.log('the named tests are not green without mutations; fix that first');
     return 1;
   }
-  let survived = 0;
+  let wrong = 0;
   MUTATIONS.forEach((mutation, index) => {
     const original = mutation.apply();
     let outcome;
@@ -133,11 +143,12 @@ function main() {
     } finally {
       mutation.restore(original);
     }
-    if (outcome !== 'caught') survived += 1;
-    console.log(`${String(index + 1).padStart(2)} ${outcome.padEnd(14)} ${mutation.file}: ${mutation.caughtBy}`);
+    const note = outcome === mutation.expected ? '' : `  <- expected ${mutation.expected}`;
+    if (note) wrong += 1;
+    console.log(`${String(index + 1).padStart(2)} ${outcome.padEnd(15)} ${mutation.file}: ${mutation.caughtBy}${note}`);
   });
-  console.log(`${MUTATIONS.length - survived}/${MUTATIONS.length} caught`);
-  return survived ? 1 : 0;
+  console.log(`${MUTATIONS.length - wrong}/${MUTATIONS.length} as expected`);
+  return wrong ? 1 : 0;
 }
 
 process.exitCode = main();

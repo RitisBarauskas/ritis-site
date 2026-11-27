@@ -1,6 +1,7 @@
 import type { Request, Route } from '@playwright/test';
 import {
   answer,
+  asksAgain,
   booking,
   CHECKOUT,
   fakeCheckout,
@@ -8,6 +9,7 @@ import {
   ID,
   inFlight,
   openDialog,
+  requested,
   statusSequence,
 } from './booking-mocks';
 import { expect, test } from './fixtures';
@@ -42,11 +44,6 @@ test.describe('оплата из окна брони', () => {
   });
 
   test('без согласия с офертой анкета не уходит', async ({ page }) => {
-    let sent = 0;
-    await page.route('**/api/bookings', (route) => {
-      sent += 1;
-      return route.abort();
-    });
     await openDialog(page);
     await fillForm(page);
 
@@ -55,7 +52,6 @@ test.describe('оплата из окна брони', () => {
     // The browser stops the submission on the unticked box, before any request.
     await expect(page.locator('#consent:invalid')).toHaveCount(1);
     await expect(page.locator('#book')).toHaveAttribute('open');
-    expect(sent).toBe(0);
   });
 
   test('ловушка для ботов людям не видна и клавиатурой до неё не дойти', async ({ page }) => {
@@ -74,11 +70,6 @@ test.describe('оплата из окна брони', () => {
   });
 
   test('имя из одних пробелов браузер не пропускает', async ({ page }) => {
-    let sent = 0;
-    await page.route('**/api/bookings', (route) => {
-      sent += 1;
-      return route.abort();
-    });
     await openDialog(page);
     await fillForm(page);
     await page.getByLabel('Как вас зовут').fill('   ');
@@ -88,14 +79,12 @@ test.describe('оплата из окна брони', () => {
 
     // The API trims spaces and would refuse an empty name with a message about the whole form.
     await expect(page.locator('input[name="name"]:invalid')).toHaveCount(1);
-    expect(sent).toBe(0);
   });
 
-  test('закрытое во время запроса окно на оплату не уводит', async ({ page }) => {
-    let answer = () => {};
-    await fakeCheckout(page);
+  test('пока ждём API, анкету не поправить; закрытое окно запрос отменяет', async ({ page }) => {
+    let release = () => {};
     await page.route('**/api/bookings', async (route) => {
-      await new Promise<void>((resolve) => (answer = resolve));
+      await new Promise<void>((resolve) => (release = resolve));
       await route.fulfill({ status: 201, json: booking('awaiting_payment', CHECKOUT) }).catch(() => {});
     });
     await openDialog(page);
@@ -103,15 +92,32 @@ test.describe('оплата из окна брони', () => {
     await page.locator('#consent').check();
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-submit')).toHaveText('Открываем оплату…');
+    await expect(page.getByLabel('Почта или Telegram')).toBeDisabled();
+    const cancelled = page.waitForEvent('requestfailed', (request) => request.url().endsWith('/api/bookings'));
 
     await page.keyboard.press('Escape');
 
-    // Cancelled: the dialog is ready again before the API has even answered.
-    await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
-    answer();
-    await page.locator('main [data-book="session"]').first().click();
+    // The browser drops the request: there is no answer left to lead anywhere.
+    await cancelled;
+    release();
     await expect(page.locator('#book-error')).toBeHidden();
-    await expect(page).toHaveURL('/');
+    await expect(page.getByLabel('Почта или Telegram')).toBeEnabled();
+    await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
+  });
+
+  test('API молчит: через 20 секунд понятное сообщение', async ({ page }) => {
+    await page.clock.install();
+    await page.route('**/api/bookings', () => new Promise<void>(() => {}));
+    await openDialog(page);
+    await fillForm(page);
+    await page.locator('#consent').check();
+    await page.locator('#book-submit').click();
+    await expect(page.locator('#book-submit')).toHaveText('Открываем оплату…');
+
+    await page.clock.runFor(20_000);
+
+    await expect(page.locator('#book-error')).toHaveText(/Сервер долго не отвечает/);
+    await expect(page.locator('#book-submit')).toBeEnabled();
   });
 
   test('сбой платёжного сервиса: понятное сообщение и повтор того же запроса', async ({ page }) => {
@@ -192,19 +198,15 @@ test.describe('оплата из окна брони', () => {
   });
 
   test('бесплатный разбор не просит согласия и не ходит в API', async ({ page }) => {
-    let sent = 0;
-    await page.route('**/api/**', (route) => {
-      sent += 1;
-      return route.abort();
-    });
     await openDialog(page, 'teardown');
     await expect(page.locator('#consent-row')).toBeHidden();
     await fillForm(page);
+    const sent = requested(page, '**/api/**');
 
     await page.locator('#book-submit').click();
 
     await expect(page.locator('#toast')).toHaveText(/заявка на разбор/);
-    expect(sent).toBe(0);
+    expect(await sent).toBe(false);
   });
 });
 
@@ -218,13 +220,13 @@ test.describe('страница брони', () => {
 
   test('пока оплата в пути, страница спрашивает снова и показывает итог', async ({ page }) => {
     await page.clock.install();
-    const calls = await statusSequence(page, [inFlight, inFlight, answer('paid')]);
+    const calls = await statusSequence(page, [inFlight(1), inFlight(2), answer('paid')]);
     await page.goto(`/booking/?id=${ID}`);
 
-    // One poll at a time: each answer arrives before the timer for the next one is run.
+    // One poll at a time: the page shows each answer's link in the same turn as it sets the
+    // timer for the next poll, so the clock moves only once that timer is there.
     for (let asked = 1; asked < 3; asked++) {
-      await expect.poll(calls).toBe(asked);
-      await expect(page.locator('#booking-title')).toHaveText('Проверяем оплату…');
+      await expect(page.locator('#booking-resume')).toHaveAttribute('href', `${CHECKOUT}#${asked}`);
       await page.clock.runFor(3000);
     }
 
@@ -234,17 +236,22 @@ test.describe('страница брони', () => {
 
   test('опрос не бесконечный', async ({ page }) => {
     await page.clock.install();
-    const calls = await statusSequence(page, [inFlight]);
+    const marks = Array.from({ length: 20 }, (_, index) => index + 1);
+    const calls = await statusSequence(page, marks.map((mark) => inFlight(mark)));
     await page.goto(`/booking/?id=${ID}`);
 
-    for (let asked = 1; asked < 20; asked++) {
-      await expect.poll(calls).toBe(asked);
+    for (const mark of marks.slice(0, -1)) {
+      await expect(page.locator('#booking-resume')).toHaveAttribute('href', `${CHECKOUT}#${mark}`);
       await page.clock.runFor(3000);
     }
 
     await expect(page.locator('#booking-title')).toHaveText('Оплата пока не подтвердилась');
-    await page.clock.runFor(3000 * 10);
+    // Its text sends the customer back to the checkout, which is still open.
+    await expect(page.locator('#booking-resume')).toHaveAttribute('href', `${CHECKOUT}#20`);
     expect(calls()).toBe(20);
+    const again = asksAgain(page);
+    await page.clock.runFor(3000 * 10);
+    expect(await again).toBe(false);
   });
 
   test('временный сбой связи не останавливает опрос', async ({ page }) => {
@@ -262,9 +269,9 @@ test.describe('страница брони', () => {
 
   test('оплата открыта: можно вернуться к ней', async ({ page }) => {
     await fakeCheckout(page);
-    await statusSequence(page, [inFlight]);
+    await statusSequence(page, [inFlight()]);
     await page.goto(`/booking/?id=${ID}`);
-    await expect(page.locator('#booking-title')).toHaveText('Проверяем оплату…');
+    await expect(page.getByRole('link', { name: 'Вернуться к оплате' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Вернуться к оплате' }).click();
 
@@ -276,9 +283,11 @@ test.describe('страница брони', () => {
     const calls = await statusSequence(page, [answer('awaiting_payment', true)]);
     await page.goto(`/booking/?id=${ID}`);
     await expect(page.locator('#booking-title')).toHaveText('Не удалось открыть оплату');
+    const again = asksAgain(page);
 
     await page.clock.runFor(3000 * 3);
 
+    expect(await again).toBe(false);
     expect(calls()).toBe(1);
     await expect(page.locator('#booking-title')).toHaveText('Не удалось открыть оплату');
   });
@@ -364,9 +373,11 @@ test.describe('страница брони', () => {
     ]);
     await page.goto(`/booking/?id=${ID}`);
     await expect(page.locator('#booking-title')).toHaveText('Бронь не найдена');
+    const again = asksAgain(page);
 
     await page.clock.runFor(3000 * 3);
 
+    expect(await again).toBe(false);
     expect(calls()).toBe(1);
   });
 

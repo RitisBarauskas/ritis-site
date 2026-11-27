@@ -45,7 +45,7 @@ const SCREENS: Record<BookingStatus, Screen> = {
   },
 };
 
-// Awaiting payment, but no checkout is open: the last one could not be opened.
+// Awaiting payment, yet the API offers to pay again: the last checkout could not be opened.
 const NOT_OPENED: Screen = {
   title: 'Не удалось открыть оплату',
   text: 'Платёжный сервис не ответил. Попробуйте открыть оплату ещё раз.',
@@ -59,9 +59,9 @@ const STILL_WAITING: Screen = {
 
 const BOOKING_ID = /^[0-9a-f]{32}$/;
 
-/** A checkout is open and its outcome is still to come. */
+/** The payment is still to be settled: a checkout is open, or is being opened. */
 const inFlight = (booking: BookingView) =>
-  booking.status === 'awaiting_payment' && booking.checkout_url !== null;
+  booking.status === 'awaiting_payment' && !booking.can_retry_payment;
 
 interface PollPolicy {
   intervalMs: number;
@@ -123,13 +123,13 @@ export class BookingStatusPage {
       const failure = BookingApiError.failureOf(error);
       // The booking moved on meanwhile (paid in another tab, say): show where it stands now.
       if (failure === 'conflict') return this.watch(id);
-      this.show({ title: 'Не удалось открыть оплату', text: failureMessages[failure] }, { retry: true });
+      this.show({ title: NOT_OPENED.title, text: failureMessages[failure] }, { retry: failure !== 'not_found' });
       this.view.retry.focus();
     }
   }
 
   private showBooking(booking: BookingView): void {
-    const failedToOpen = booking.status === 'awaiting_payment' && booking.checkout_url === null;
+    const failedToOpen = booking.status === 'awaiting_payment' && booking.can_retry_payment;
     this.show(failedToOpen ? NOT_OPENED : SCREENS[booking.status], {
       retry: booking.can_retry_payment,
       resume: inFlight(booking) ? booking.checkout_url : null,

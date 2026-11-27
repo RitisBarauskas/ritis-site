@@ -40,8 +40,9 @@ test.describe('возврат со страницы оплаты кнопкой 
 
     await expect(page.locator('#booking-title')).toHaveText('Оплачено');
     // Reloaded on purpose: a fresh load after Back would say 'back_forward'.
-    const navigation = () =>
-      page.evaluate(() => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).type);
-    expect(await navigation()).toBe('reload');
+    const navigation = await page.evaluate(
+      () => (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).type,
+    );
+    expect(navigation).toBe('reload');
   });
 });

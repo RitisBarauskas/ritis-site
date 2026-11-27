@@ -34,11 +34,30 @@ export async function statusSequence(page: Page, answers: Array<(route: Route) =
   return () => calls;
 }
 
+/**
+ * Whether the page sends a request to `url` within `ms` of real time. Start it before the
+ * action: a request the page sends reaches the test only a little later.
+ */
+export function requested(page: Page, url: string, ms = 2000): Promise<boolean> {
+  return page.waitForRequest(url, { timeout: ms }).then(
+    () => true,
+    () => false,
+  );
+}
+
+export const asksAgain = (page: Page) => requested(page, `**/api/bookings/${ID}`);
+
 export const answer = (status: string, canRetry = false) => (route: Route) =>
   route.fulfill({ json: booking(status, null, canRetry) });
 
-/** A checkout is open and the customer has not finished it yet. */
-export const inFlight = (route: Route) => route.fulfill({ json: booking('awaiting_payment', CHECKOUT) });
+/**
+ * A checkout is open and the customer has not finished it yet. A mark tells the answers
+ * apart: the page shows the link, and the test can wait for it before moving the clock.
+ */
+export const inFlight =
+  (mark?: number) =>
+  (route: Route): Promise<void> =>
+    route.fulfill({ json: booking('awaiting_payment', mark ? `${CHECKOUT}#${mark}` : CHECKOUT) });
 
 export async function openDialog(page: Page, format = 'session'): Promise<void> {
   await page.goto('/');

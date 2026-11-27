@@ -24,7 +24,14 @@ export interface BookingRequest {
   website: string; // honeypot: stays empty for people
 }
 
-export type Failure = 'invalid' | 'not_found' | 'conflict' | 'provider_down' | 'network' | 'server';
+export type Failure =
+  | 'invalid'
+  | 'not_found'
+  | 'conflict'
+  | 'provider_down'
+  | 'timeout'
+  | 'network'
+  | 'server';
 
 // The API names each failure in `detail`; a proxy or a host in front of it answers with the
 // same HTTP statuses, so the status alone says little.
@@ -42,7 +49,7 @@ export class BookingApiError extends Error {
     super(failure);
   }
 
-  /** Anything other than an answer of the API, such as a malformed body, counts as our fault. */
+  /** An error that did not come from talking to the API is a bug of ours, and reads so. */
   static failureOf(error: unknown): Failure {
     return error instanceof BookingApiError ? error.failure : 'server';
   }
@@ -53,6 +60,7 @@ export const failureMessages: Record<Failure, string> = {
   not_found: 'Бронь не найдена. Проверьте ссылку или оформите бронь заново.',
   conflict: 'Бронь как раз обновляется. Попробуйте ещё раз через пару секунд.',
   provider_down: 'Платёжный сервис сейчас не отвечает. Попробуйте через пару минут.',
+  timeout: 'Сервер долго не отвечает. Попробуйте ещё раз.',
   network: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
   server: 'Что-то пошло не так на нашей стороне. Попробуйте ещё раз чуть позже.',
 };
@@ -82,20 +90,39 @@ export class BookingApi {
   }
 
   private async send(url: string, init: RequestInit, cancel?: AbortSignal): Promise<BookingView> {
-    const timeout = AbortSignal.timeout(TIMEOUT_MS);
-    let response: Response;
+    // One controller for both reasons to stop: AbortSignal.any and .timeout are missing from
+    // browsers still in use (Safari before 17.4, and the in-app browsers built on it).
+    const abort = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      abort.abort();
+    }, TIMEOUT_MS);
+    const stop = () => abort.abort();
+    cancel?.addEventListener('abort', stop, { once: true });
+    const lost = () => new BookingApiError(timedOut ? 'timeout' : 'network');
     try {
-      response = await fetch(url, { ...init, signal: cancel ? AbortSignal.any([cancel, timeout]) : timeout });
-    } catch {
-      throw new BookingApiError('network');
+      let response: Response;
+      try {
+        response = await fetch(url, { ...init, signal: abort.signal });
+      } catch {
+        throw lost();
+      }
+      const body: unknown = await response.json().catch((error: unknown) => {
+        // Not JSON is an answer to judge below; a body cut off on the way is a lost connection.
+        if (error instanceof SyntaxError) return null;
+        throw lost();
+      });
+      if (response.ok && isBookingView(body)) return body;
+      throw new BookingApiError(response.ok ? 'server' : failureIn(response.status, body));
+    } finally {
+      clearTimeout(timer);
+      cancel?.removeEventListener('abort', stop);
     }
-    const body: unknown = await response.json().catch(() => null);
-    if (response.ok && isBookingView(body)) return body;
-    throw new BookingApiError(response.ok ? 'server' : failureOf(response.status, body));
   }
 }
 
-function failureOf(status: number, body: unknown): Failure {
+function failureIn(status: number, body: unknown): Failure {
   const detail = (body as { detail?: unknown } | null)?.detail;
   if (typeof detail === 'string') return FAILURE_BY_DETAIL.get(detail) ?? 'server';
   // FastAPI's own validation answer: a list of the fields that failed.

@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass
 
 from ritis_api.app.catalog import Catalog
+from ritis_api.app.confirm_payment import ConfirmPayment
 from ritis_api.app.runtime import Clock, IdFactory
 from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer
 from ritis_api.domain.errors import BookingError
@@ -21,23 +22,21 @@ from ritis_api.ports.storage import (
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+class IdempotencyKeyReusedError(Exception):
+    """The key already belongs to a booking made from a different request."""
+
+
 @dataclass(frozen=True, slots=True)
 class CheckoutSettings:
-    # Public base URL of this API: the provider notifies and returns the customer here.
-    api_base_url: str
+    # Built by the composition root from the provider's inbound routes.
+    return_url_template: str  # with a "{booking_id}" placeholder
+    notification_url: str
     lifetime_seconds: int
     language: str = "ru"
     description: str = "ritis.dev — звонок 60 минут"
 
     def return_url(self, booking_id: BookingId) -> str:
-        return f"{self._base}/api/payments/flitt/return?booking={booking_id}"
-
-    def notification_url(self) -> str:
-        return f"{self._base}/api/payments/flitt/notification"
-
-    @property
-    def _base(self) -> str:
-        return self.api_base_url.rstrip("/")
+        return self.return_url_template.format(booking_id=booking_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +53,7 @@ class OpenBooking:
         *,
         repository: BookingRepository,
         provider: PaymentProvider,
+        confirm_payment: ConfirmPayment,
         catalog: Catalog,
         settings: CheckoutSettings,
         clock: Clock,
@@ -61,6 +61,7 @@ class OpenBooking:
     ) -> None:
         self._repository = repository
         self._provider = provider
+        self._confirm_payment = confirm_payment
         self._catalog = catalog
         self._settings = settings
         self._clock = clock
@@ -69,7 +70,7 @@ class OpenBooking:
     def start(self, command: StartBooking) -> Booking:
         existing = self._repository.find_by_idempotency_key(command.idempotency_key)
         if existing is not None:
-            return self._ensure_checkout(existing)
+            return self._repeat(existing, command)
         booking = Booking.new(
             booking_id=BookingId(self._new_id()),
             idempotency_key=command.idempotency_key,
@@ -82,19 +83,24 @@ class OpenBooking:
         try:
             self._repository.add(booking)
         except DuplicateIdempotencyKeyError:
-            # The same request is being served concurrently and is opening the checkout itself.
             twin = self._repository.find_by_idempotency_key(command.idempotency_key)
             if twin is None:
                 raise
-            return twin
+            return self._repeat(twin, command)
         return self._open_checkout(booking, order_id)
 
     def retry(self, booking_id: BookingId) -> Booking:
         """Pay again after a declined or expired checkout; an open checkout is returned as is."""
-        booking = self._ensure_checkout(self._repository.get(booking_id))
+        # The provider may know more than we do (a late success, an expiry): ask it first.
+        booking = self._ensure_checkout(self._confirm_payment.refresh(booking_id))
         if booking.open_checkout_url is None:
             raise BookingError(f"booking {booking_id} cannot be paid in {booking.status}")
         return booking
+
+    def _repeat(self, booking: Booking, command: StartBooking) -> Booking:
+        if (booking.format, booking.customer) != (command.booking_format, command.customer):
+            raise IdempotencyKeyReusedError(command.idempotency_key)
+        return self._ensure_checkout(booking)
 
     def _ensure_checkout(self, booking: Booking) -> Booking:
         if booking.open_checkout_url is not None:
@@ -105,8 +111,10 @@ class OpenBooking:
             and attempt is not None
             and attempt.status is AttemptStatus.PENDING
         ):
-            # An earlier call stopped before the provider answered. Its order is abandoned
-            # rather than re-sent: a fresh order id can never collide at the provider.
+            # This attempt's checkout was never handed out: an earlier call died before the
+            # provider answered, or a concurrent repeat of the request is still waiting for it.
+            # Either way it is retired. A fresh order id cannot collide at the provider, and a
+            # concurrent twin at worst leaves an unused order there that expires.
             booking.mark_checkout_failed(attempt.order_id)
         if not booking.can_retry_payment:
             return booking
@@ -123,7 +131,8 @@ class OpenBooking:
         return self._save_or_reload(booking)
 
     def _new_attempt(self, booking: Booking) -> OrderId:
-        return booking.start_attempt(OrderId(self._new_id()), self._clock()).order_id
+        attempt = booking.start_attempt(OrderId(self._new_id()), self._provider.name, self._clock())
+        return attempt.order_id
 
     def _checkout_request(self, booking: Booking, order_id: OrderId) -> CheckoutRequest:
         contact = booking.customer.contact.strip()
@@ -132,7 +141,7 @@ class OpenBooking:
             amount=booking.price,
             description=self._settings.description,
             return_url=self._settings.return_url(booking.id),
-            notification_url=self._settings.notification_url(),
+            notification_url=self._settings.notification_url,
             lifetime_seconds=self._settings.lifetime_seconds,
             language=self._settings.language,
             customer_email=contact if _EMAIL.match(contact) else None,

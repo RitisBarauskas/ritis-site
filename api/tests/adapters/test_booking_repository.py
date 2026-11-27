@@ -32,7 +32,7 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
         price=Money(20000, Currency.EUR),
         now=NOW,
     )
-    new.start_attempt(OrderId("order-1"), NOW)
+    new.start_attempt(OrderId("order-1"), "fake", NOW)
     return new
 
 

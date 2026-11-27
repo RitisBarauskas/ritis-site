@@ -1,13 +1,13 @@
 """A paid booking of a call: the aggregate that owns its payment attempts.
 
-The payment provider is the source of truth about money. The booking applies the provider's
-reports, refuses contradictions and flags what it cannot reconcile on its own (a wrong amount,
-a second successful payment) for a human, instead of guessing.
+The provider is the source of truth about money. The booking records what it reports and,
+when the report contradicts the booking (another amount, another currency, a second payment,
+a refund above the charge), flags it for a human instead of guessing. A flag is never cleared
+automatically.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -15,7 +15,14 @@ from enum import StrEnum
 from ritis_api.domain.errors import BookingError
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Money
-from ritis_api.domain.payment import AttemptStatus, PaymentAttempt, PaymentReport, PaymentState
+from ritis_api.domain.payment import (
+    AttemptStatus,
+    Charged,
+    NotCharged,
+    Outcome,
+    PaymentAttempt,
+    PaymentReport,
+)
 
 
 class BookingFormat(StrEnum):
@@ -48,12 +55,6 @@ class Customer:
     contact: str
     about: str
     links: str
-
-
-@dataclass(frozen=True, slots=True)
-class RefundPlan:
-    order_id: OrderId
-    amount: Money
 
 
 @dataclass(slots=True)
@@ -112,14 +113,6 @@ class Booking:
             attempt is None or attempt.status is not AttemptStatus.PENDING
         )
 
-    @property
-    def paid(self) -> Money:
-        return self._sum(a.amount for a in self.attempts if a.status is AttemptStatus.APPROVED)
-
-    @property
-    def refunded(self) -> Money:
-        return self._sum(a.refunded for a in self.attempts)
-
     def attempt(self, order_id: OrderId) -> PaymentAttempt:
         for attempt in self.attempts:
             if attempt.order_id == order_id:
@@ -128,14 +121,11 @@ class Booking:
 
     # --- commands ------------------------------------------------------------------------
 
-    def start_attempt(self, order_id: OrderId, now: datetime) -> PaymentAttempt:
+    def start_attempt(self, order_id: OrderId, provider: str, now: datetime) -> PaymentAttempt:
         if not self.can_retry_payment:
             raise BookingError(f"cannot start a payment for booking {self.id} in {self.status}")
         attempt = PaymentAttempt(
-            order_id=order_id,
-            amount=self.price,
-            refunded=Money.zero(self.price.currency),
-            created_at=now,
+            order_id=order_id, provider=provider, price=self.price, created_at=now
         )
         self.attempts.append(attempt)
         self.status = BookingStatus.AWAITING_PAYMENT
@@ -152,41 +142,14 @@ class Booking:
         self._awaiting_checkout(order_id).status = AttemptStatus.FAILED
 
     def apply_report(self, order_id: OrderId, report: PaymentReport, now: datetime) -> bool:
-        """Apply the provider's report on one order. Returns False when nothing changed."""
-        match report.state:
-            case PaymentState.PENDING:
-                return False
-            case PaymentState.DECLINED:
-                return self._record_failure(
-                    order_id, AttemptStatus.DECLINED, BookingStatus.DECLINED
-                )
-            case PaymentState.EXPIRED:
-                return self._record_failure(order_id, AttemptStatus.EXPIRED, BookingStatus.EXPIRED)
-            case PaymentState.APPROVED | PaymentState.REVERSED:
-                return self._record_charge(order_id, report, now)
-
-    def plan_refund(self, amount: Money | None = None) -> RefundPlan:
-        """Which order to refund and by how much: the latest paid one, in full by default."""
-        attempt = next((a for a in reversed(self.attempts) if a.refundable.amount_minor), None)
-        if attempt is None:
-            raise BookingError(f"booking {self.id} has nothing left to refund")
-        to_refund = attempt.refundable if amount is None else amount
-        if to_refund.amount_minor <= 0 or attempt.refundable < to_refund:
-            raise BookingError(f"cannot refund {to_refund}: {attempt.refundable} left")
-        return RefundPlan(order_id=attempt.order_id, amount=to_refund)
+        """Record what the provider says about one order. Returns False when nothing changed."""
+        attempt = self.attempt(order_id)
+        if isinstance(report, Charged):
+            changed = self._record_charge(attempt, report.amount, now)
+            return self._record_refund(attempt, report.refunded) or changed
+        return self._record_not_charged(attempt, report)
 
     # --- rules ---------------------------------------------------------------------------
-
-    def _record_charge(self, order_id: OrderId, report: PaymentReport, now: datetime) -> bool:
-        if (
-            report.charged is None
-        ):  # PaymentReport forbids it; checked so it can never pass silently
-            raise BookingError(f"order {order_id}: {report.state} report without an amount")
-        changed = self._record_approved(order_id, report.charged, now)
-        refunded = report.refunded_total
-        if refunded is not None and refunded.amount_minor > 0:
-            changed |= self._record_refunded_total(order_id, refunded)
-        return changed
 
     def _awaiting_checkout(self, order_id: OrderId) -> PaymentAttempt:
         attempt = self.attempt(order_id)
@@ -194,25 +157,56 @@ class Booking:
             raise BookingError(f"attempt {order_id} is not waiting for a checkout")
         return attempt
 
-    def _record_approved(self, order_id: OrderId, charged: Money, now: datetime) -> bool:
-        attempt = self.attempt(order_id)
+    def _record_charge(self, attempt: PaymentAttempt, amount: Money, now: datetime) -> bool:
         if attempt.status is AttemptStatus.APPROVED:
-            return False
-        paid_before = self.status in _SETTLED
+            if attempt.charged == amount:
+                return False
+            self._flag(
+                f"order {attempt.order_id}: charge changed from {attempt.charged} to {amount}"
+            )
+            attempt.charged = amount
+            return True
+        settled_before = self.status in _SETTLED
         attempt.status = AttemptStatus.APPROVED
-        if charged != attempt.amount:
-            self._flag(f"order {order_id}: charged {charged}, expected {attempt.amount}")
-        elif paid_before:
-            self._flag(f"order {order_id}: a second successful payment for one booking")
-        elif self.status is not BookingStatus.NEEDS_REVIEW:
+        attempt.charged = amount
+        if amount != attempt.price:
+            self._flag(f"order {attempt.order_id}: charged {amount}, expected {attempt.price}")
+        elif settled_before:
+            self._flag(f"order {attempt.order_id}: a second successful payment for one booking")
+        elif self.status is BookingStatus.NEEDS_REVIEW:
+            self._flag(f"order {attempt.order_id}: another successful payment")
+        else:
             self.status = BookingStatus.PAID
             self.paid_at = now
         return True
 
+    def _record_refund(self, attempt: PaymentAttempt, refunded: Money) -> bool:
+        previous = attempt.refunded
+        if previous is None and refunded.amount_minor == 0:
+            return False
+        if previous is not None and previous.currency is refunded.currency and refunded <= previous:
+            # Totals only grow: a repeat changes nothing and a smaller one is a stale report.
+            return False
+        attempt.refunded = refunded
+        charged = attempt.charged
+        if charged is None or charged.currency is not refunded.currency or charged < refunded:
+            self._flag(f"order {attempt.order_id}: refunded {refunded} of {charged}")
+        elif self.status is BookingStatus.PAID and self._everything_refunded():
+            self.status = BookingStatus.REFUNDED
+        return True
+
+    def _record_not_charged(self, attempt: PaymentAttempt, report: NotCharged) -> bool:
+        match report.outcome:
+            case Outcome.PENDING:
+                return False
+            case Outcome.DECLINED:
+                return self._record_failure(attempt, AttemptStatus.DECLINED, BookingStatus.DECLINED)
+            case Outcome.EXPIRED:
+                return self._record_failure(attempt, AttemptStatus.EXPIRED, BookingStatus.EXPIRED)
+
     def _record_failure(
-        self, order_id: OrderId, attempt_status: AttemptStatus, booking_status: BookingStatus
+        self, attempt: PaymentAttempt, attempt_status: AttemptStatus, booking_status: BookingStatus
     ) -> bool:
-        attempt = self.attempt(order_id)
         # Approval is final: a later failure for the same order is a stale report.
         if attempt.status in {attempt_status, AttemptStatus.APPROVED}:
             return False
@@ -221,26 +215,12 @@ class Booking:
             self.status = booking_status
         return True
 
-    def _record_refunded_total(self, order_id: OrderId, refunded_total: Money) -> bool:
-        # Totals only grow, so a repeated report is harmless and a stale one is ignored.
-        attempt = self.attempt(order_id)
-        if refunded_total <= attempt.refunded:
-            return False
-        if attempt.amount < refunded_total:
-            raise BookingError(f"order {order_id}: refunded {refunded_total} of {attempt.amount}")
-        attempt.refunded = refunded_total
-        if self.status is BookingStatus.PAID and self.refunded == self.paid:
-            self.status = BookingStatus.REFUNDED
-        return True
+    def _everything_refunded(self) -> bool:
+        approved = [a for a in self.attempts if a.status is AttemptStatus.APPROVED]
+        return bool(approved) and all(a.refunded_in_full for a in approved)
 
     def _flag(self, reason: str) -> None:
         self.status = BookingStatus.NEEDS_REVIEW
         self.review_reason = (
             reason if self.review_reason is None else f"{self.review_reason}; {reason}"
         )
-
-    def _sum(self, amounts: Iterable[Money]) -> Money:
-        total = Money.zero(self.price.currency)
-        for amount in amounts:
-            total += amount
-        return total

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import pytest
 from fastapi.testclient import TestClient
 
+from ritis_api.http.flitt import NOTIFICATION_PATH
+from ritis_api.ports.payments import PaymentProviderError
 from tests.fakes import FakeProvider
-from tests.http.conftest import create, last_order
-
-NOTIFICATION = "/api/payments/flitt/notification"
+from tests.http.conftest import create, last_order, signed_notification
 
 
 def test_a_signed_notification_records_the_payment(
@@ -15,9 +17,7 @@ def test_a_signed_notification_records_the_payment(
     booking = create(client)
     provider.approve(last_order(provider))
 
-    response = client.post(
-        NOTIFICATION, json={"order_id": last_order(provider), "signature": "valid"}
-    )
+    response = client.post(NOTIFICATION_PATH, json=signed_notification(last_order(provider)))
     assert (response.status_code, response.text) == (200, "OK")
     assert client.get(f"/api/bookings/{booking['id']}").json()["status"] == "paid"
 
@@ -26,40 +26,46 @@ def test_a_forged_notification_is_rejected_without_touching_the_order(
     client: TestClient, provider: FakeProvider
 ) -> None:
     create(client)
-    provider.approve(last_order(provider))
-    reports_before = provider.report_calls
+    forged = signed_notification(last_order(provider))
+    forged["order_status"] = "approved-by-someone"
 
-    response = client.post(NOTIFICATION, json={"order_id": last_order(provider), "signature": "x"})
+    response = client.post(NOTIFICATION_PATH, json=forged)
     assert response.status_code == 400
-    assert provider.report_calls == reports_before
+    assert provider.report_calls == 0
 
 
 def test_a_signed_notification_for_a_stranger_order_is_acknowledged(client: TestClient) -> None:
-    response = client.post(NOTIFICATION, json={"order_id": "not-ours", "signature": "valid"})
+    response = client.post(NOTIFICATION_PATH, json=signed_notification("not-ours"))
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize("method", ["GET", "POST"])
-def test_the_customer_returns_to_the_booking_page(
-    client: TestClient, provider: FakeProvider, method: str
+def test_when_the_order_cannot_be_read_flitt_is_told_to_retry(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    create(client)
+    provider.report_error = PaymentProviderError("down")
+    response = client.post(NOTIFICATION_PATH, json=signed_notification(last_order(provider)))
+    assert response.status_code >= 500, "a 2xx would make Flitt stop retrying a real payment"
+
+
+def test_the_return_url_handed_to_the_provider_leads_back_to_the_booking_page(
+    client: TestClient, provider: FakeProvider
 ) -> None:
     booking = create(client)
-    provider.approve(last_order(provider))
-    reports_before = provider.report_calls
+    handed_out = urlsplit(provider.checkout_requests[-1].return_url)
 
-    response = client.request(
-        method,
-        f"/api/payments/flitt/return?booking={booking['id']}",
-        # Flitt posts the order fields; the endpoint must not depend on them.
-        data={"order_status": "approved", "signature": "whatever"} if method == "POST" else None,
+    # Flitt brings the customer back with a form POST carrying the order fields.
+    response = client.post(
+        f"{handed_out.path}?{handed_out.query}",
+        data={"order_status": "approved", "signature": "whatever"},
     )
     assert response.status_code == 303
     assert response.headers["location"] == f"https://ritis.dev/booking/?id={booking['id']}"
-    assert provider.report_calls == reports_before + 1, "the return re-checks the order"
+    assert provider.report_calls == 0, "the page asks the API; the return itself does not wait"
 
 
-@pytest.mark.parametrize("query", ["", "?booking=../../etc", "?booking=" + "0" * 32])
-def test_a_return_without_a_known_booking(client: TestClient, query: str) -> None:
+@pytest.mark.parametrize("query", ["", "?booking=../../etc", "?booking=ABC"])
+def test_a_return_without_a_valid_booking_id(client: TestClient, query: str) -> None:
     response = client.get(f"/api/payments/flitt/return{query}")
     assert response.status_code == 303
     assert response.headers["location"] == "https://ritis.dev/booking/?error=not_found"

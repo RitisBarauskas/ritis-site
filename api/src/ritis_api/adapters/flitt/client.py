@@ -24,21 +24,12 @@ class FlittClient:
     """
 
     def __init__(
-        self,
-        http: httpx.Client,
-        *,
-        merchant_id: int,
-        signer: FlittSigner,
-        base_url: str = BASE_URL,
+        self, http: httpx.Client, *, merchant_id: int, signer: FlittSigner, base_url: str
     ) -> None:
         self._http = http
         self._merchant_id = merchant_id
         self._signer = signer
         self._base_url = base_url.rstrip("/")
-
-    @property
-    def merchant_id(self) -> int:
-        return self._merchant_id
 
     def call(
         self, path: str, fields: Mapping[str, object], *, signed_reply: bool
@@ -70,8 +61,9 @@ class FlittClient:
         if not isinstance(reply, dict):
             raise PaymentProviderError(f"Flitt {path}: reply has no 'response' object")
         if reply.get("response_status") != "success":
-            code = reply.get("error_code")
-            code = None if code in (None, "") else str(code)
-            error = _ERRORS_BY_CODE.get(code or "", PaymentProviderError)
-            raise error(f"Flitt {path}: {reply.get('error_message', 'request failed')}", code=code)
+            code = str(reply.get("error_code", ""))
+            error = _ERRORS_BY_CODE.get(code, PaymentProviderError)
+            raise error(
+                f"Flitt {path}: error {code}: {reply.get('error_message', 'request failed')}"
+            )
         return reply

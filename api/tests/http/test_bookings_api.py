@@ -33,6 +33,17 @@ def test_the_same_idempotency_key_gives_the_same_booking(
     assert len(provider.checkout_requests) == 1
 
 
+def test_the_same_key_with_other_data_is_refused(
+    client: TestClient, provider: FakeProvider
+) -> None:
+    create(client)
+    response = client.post(
+        "/api/bookings", json={**FORM, "contact": "fixed@example.com"}, headers=KEY
+    )
+    assert (response.status_code, response.json()) == (422, {"detail": "idempotency_key_reused"})
+    assert len(provider.checkout_requests) == 1
+
+
 @pytest.mark.parametrize(
     ("change", "headers"),
     [
@@ -109,7 +120,6 @@ def test_paying_a_paid_booking_again_is_a_conflict(
 ) -> None:
     booking = create(client)
     provider.approve(last_order(provider))
-    client.get(f"/api/bookings/{booking['id']}")
     response = client.post(f"/api/bookings/{booking['id']}/payments")
     assert (response.status_code, response.json()) == (409, {"detail": "booking_conflict"})
 

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -39,10 +41,20 @@ def test_empty_values_and_its_own_fields_are_not_signed() -> None:
     assert signer.sign(noisy) == signer.sign(base)
 
 
+def flitt_signed_reply() -> dict[str, Any]:
+    # Recorded as is: this signature was computed by Flitt, not by this code.
+    reply: dict[str, Any] = json.loads(
+        (REPLIES / "reverse_partial.json").read_text(encoding="utf-8")
+    )["response"]
+    return reply
+
+
 def test_accepts_a_signature_made_by_flitt_itself() -> None:
-    # Recorded as is: the signature was computed by Flitt, not by this code.
-    reply = json.loads((REPLIES / "reverse_partial.json").read_text(encoding="utf-8"))["response"]
-    assert FlittSigner("test").verify(reply)
+    assert FlittSigner("test").verify(flitt_signed_reply())
+
+
+def test_another_key_does_not_verify_it() -> None:
+    assert not FlittSigner("another-secret").verify(flitt_signed_reply())
 
 
 @pytest.mark.parametrize(
@@ -53,14 +65,12 @@ def test_accepts_a_signature_made_by_flitt_itself() -> None:
         lambda r: r.pop("signature"),
         lambda r: r.update(signature=12345),
     ],
+    ids=["changed-field", "changed-signature", "no-signature", "non-string-signature"],
 )
-def test_rejects_tampered_or_missing_signatures(tamper: object) -> None:
-    reply = json.loads((REPLIES / "reverse_partial.json").read_text(encoding="utf-8"))["response"]
-    tamper(reply)  # type: ignore[operator]
+def test_rejects_tampered_or_missing_signatures(tamper: Callable[[dict[str, Any]], object]) -> None:
+    reply = flitt_signed_reply()
+    tamper(reply)
     assert not FlittSigner("test").verify(reply)
-    assert not FlittSigner("another-secret").verify(
-        json.loads((REPLIES / "reverse_partial.json").read_text(encoding="utf-8"))["response"]
-    )
 
 
 def test_an_empty_secret_is_refused() -> None:

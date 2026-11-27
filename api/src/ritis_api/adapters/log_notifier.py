@@ -12,7 +12,7 @@ class LoggingNotifier:
 
     def booking_paid(self, booking: Booking) -> None:
         log.info(
-            "booking paid: id=%s format=%s amount=%s", booking.id, booking.format, booking.paid
+            "booking paid: id=%s format=%s price=%s", booking.id, booking.format, booking.price
         )
 
     def booking_needs_review(self, booking: Booking) -> None:

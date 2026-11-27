@@ -16,6 +16,10 @@ dependencies = [
 requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 
+[tool.uv]
+# The same minor version as CI (.github/workflows/ci.yml); uv refuses to run otherwise.
+required-version = ">=0.11.7,<0.12"
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"
@@ -38,11 +42,13 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 # Tests use plain asserts and Flitt's public test secret ("test").
 "tests/**" = ["S101", "S105", "S106"]
+# A table of source fragments: lines are as long as the code they quote; it runs pytest.
+"scripts/check_mutations.py" = ["E501", "S603", "S607"]
 
 [tool.mypy]
 strict = true
 python_version = "3.13"
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]

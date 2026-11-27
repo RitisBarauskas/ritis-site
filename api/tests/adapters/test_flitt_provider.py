@@ -1,4 +1,4 @@
-"""FlittPaymentProvider against replies recorded from Flitt (see flitt_replies/README.md)."""
+"""What is specific to Flitt: its request shape and its replies, recorded from its test merchant."""
 
 from __future__ import annotations
 
@@ -14,18 +14,12 @@ from ritis_api.adapters.flitt import FlittPaymentProvider
 from ritis_api.adapters.flitt.signature import FlittSigner
 from ritis_api.domain.identifiers import OrderId
 from ritis_api.domain.money import Currency, Money
-from ritis_api.domain.payment import PaymentState
-from ritis_api.ports.payments import (
-    CheckoutRequest,
-    InvalidNotificationError,
-    OrderNotFoundError,
-    PaymentProviderError,
-    RefundStatus,
-)
+from ritis_api.domain.payment import Charged, NotCharged, Outcome
+from ritis_api.ports.payments import CheckoutRequest, OrderNotFoundError, PaymentProviderError
 
 REPLIES = Path(__file__).with_name("flitt_replies")
-MERCHANT_ID = 1549901
 SIGNER = FlittSigner("test")
+EUR = Currency.EUR
 
 Handler = Callable[[httpx.Request], httpx.Response]
 
@@ -35,13 +29,13 @@ def recorded(name: str) -> dict[str, Any]:
     return reply
 
 
-# The order every recorded status and refund reply is about.
+# The order every recorded status reply is about.
 RECORDED_ORDER = OrderId(recorded("status_approved")["response"]["order_id"])
 
 
 def provider_answering(handler: Handler) -> FlittPaymentProvider:
     http = httpx.Client(transport=httpx.MockTransport(handler))
-    return FlittPaymentProvider.connect(http, merchant_id=MERCHANT_ID, secret_key="test")
+    return FlittPaymentProvider.connect(http, merchant_id=1549901, secret_key="test")
 
 
 def replying(body: dict[str, Any], seen: list[httpx.Request] | None = None) -> Handler:
@@ -51,6 +45,18 @@ def replying(body: dict[str, Any], seen: list[httpx.Request] | None = None) -> H
         return httpx.Response(200, json=body)
 
     return handler
+
+
+def signed_status(**fields: Any) -> dict[str, Any]:
+    reply = {"order_id": RECORDED_ORDER, "response_status": "success", **fields}
+    reply["signature"] = SIGNER.sign(reply)
+    return {"response": reply}
+
+
+def tampered_status() -> dict[str, Any]:
+    reply = recorded("status_approved")
+    reply["response"]["actual_amount"] = "1"
+    return reply
 
 
 def request_fields(request: httpx.Request) -> dict[str, Any]:
@@ -63,7 +69,7 @@ def request_fields(request: httpx.Request) -> dict[str, Any]:
 def checkout_request(email: str | None = "client@example.com") -> CheckoutRequest:
     return CheckoutRequest(
         order_id=OrderId("order-1"),
-        amount=Money(20000, Currency.EUR),
+        amount=Money(20000, EUR),
         description="ritis.dev — звонок 60 минут",
         return_url="https://ritis.dev/api/payments/flitt/return?booking=b1",
         notification_url="https://ritis.dev/api/payments/flitt/notification",
@@ -74,45 +80,46 @@ def checkout_request(email: str | None = "client@example.com") -> CheckoutReques
 
 
 class TestOpenCheckout:
-    def test_sends_a_signed_request_and_returns_the_checkout(self) -> None:
+    def test_a_signed_request_for_one_try_per_order(self) -> None:
         seen: list[httpx.Request] = []
         checkout = provider_answering(replying(recorded("checkout_url"), seen)).open_checkout(
             checkout_request()
         )
 
-        assert checkout.checkout_url == recorded("checkout_url")["response"]["checkout_url"]
-        assert checkout.provider_payment_id == str(
-            recorded("checkout_url")["response"]["payment_id"]
-        )
+        recorded_reply = recorded("checkout_url")["response"]
+        assert checkout.checkout_url == recorded_reply["checkout_url"]
+        assert checkout.provider_payment_id == str(recorded_reply["payment_id"])
         (request,) = seen
         assert str(request.url) == "https://pay.flitt.com/api/checkout/url"
         fields = request_fields(request)
         assert SIGNER.verify(fields)
-        assert {
-            k: fields[k] for k in ("merchant_id", "order_id", "amount", "currency", "lang")
-        } == {
-            "merchant_id": MERCHANT_ID,
+        assert {k: fields[k] for k in ("merchant_id", "order_id", "amount", "currency")} == {
+            "merchant_id": 1549901,
             "order_id": "order-1",
             "amount": 20000,
             "currency": "EUR",
-            "lang": "ru",
         }
+        assert (fields["lang"], fields["lifetime"], fields["sender_email"]) == (
+            "ru",
+            3600,
+            "client@example.com",
+        )
         assert fields["server_callback_url"] == "https://ritis.dev/api/payments/flitt/notification"
         assert fields["response_url"] == "https://ritis.dev/api/payments/flitt/return?booking=b1"
-        assert fields["sender_email"] == "client@example.com"
+        # Without it a declined customer may pay the same order later with another card.
+        assert fields["delayed"] == "N"
 
-    def test_absent_email_is_not_sent_as_null(self) -> None:
+    def test_absent_email_is_left_out_not_sent_as_null(self) -> None:
         seen: list[httpx.Request] = []
         provider_answering(replying(recorded("checkout_url"), seen)).open_checkout(
             checkout_request(email=None)
         )
         assert "sender_email" not in request_fields(seen[0])
 
-    def test_flitt_refusal_is_a_provider_error_with_its_code(self) -> None:
+    def test_a_refusal_names_flitts_error_code(self) -> None:
         provider = provider_answering(replying(recorded("checkout_bad_signature")))
-        with pytest.raises(PaymentProviderError) as caught:
+        with pytest.raises(PaymentProviderError, match="error 1014"):
             provider.open_checkout(checkout_request())
-        assert caught.value.code == "1014"
 
     @pytest.mark.parametrize(
         "response",
@@ -126,18 +133,19 @@ class TestOpenCheckout:
                 json={
                     "response": {
                         "response_status": "success",
-                        "checkout_url": "http://x",
+                        "checkout_url": "http://insecure.example",
                         "payment_id": 1,
                     }
                 },
             ),
         ],
+        ids=["http-502", "not-json", "no-envelope", "no-url", "plain-http-url"],
     )
     def test_unusable_replies_are_provider_errors(self, response: httpx.Response) -> None:
         with pytest.raises(PaymentProviderError):
             provider_answering(lambda _: response).open_checkout(checkout_request())
 
-    def test_network_failure_is_a_provider_error(self) -> None:
+    def test_a_network_failure_is_a_provider_error(self) -> None:
         def unreachable(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectTimeout("timeout", request=request)
 
@@ -146,118 +154,72 @@ class TestOpenCheckout:
 
 
 class TestReport:
-    def test_paid_order(self) -> None:
+    def test_recorded_paid_order(self) -> None:
         seen: list[httpx.Request] = []
         report = provider_answering(replying(recorded("status_approved"), seen)).report(
             RECORDED_ORDER
         )
-        assert report.state is PaymentState.APPROVED
-        assert report.charged == Money(20000, Currency.EUR)
-        assert report.refunded == Money(0, Currency.EUR)
+        assert report == Charged(Money(20000, EUR), Money(0, EUR))
         assert str(seen[0].url) == "https://pay.flitt.com/api/status/order_id"
         assert SIGNER.verify(request_fields(seen[0]))
 
-    def test_partially_refunded_order_reports_the_cumulative_refund(self) -> None:
-        report = provider_answering(replying(recorded("status_partially_refunded"))).report(
-            RECORDED_ORDER
-        )
-        assert report.state is PaymentState.APPROVED
-        assert report.refunded == Money(5000, Currency.EUR)
+    def test_recorded_partial_and_full_refunds(self) -> None:
+        partial = provider_answering(replying(recorded("status_partially_refunded")))
+        assert partial.report(RECORDED_ORDER) == Charged(Money(20000, EUR), Money(5000, EUR))
+        full = provider_answering(replying(recorded("status_reversed")))
+        assert full.report(RECORDED_ORDER) == Charged(Money(20000, EUR), Money(20000, EUR))
 
-    def test_fully_refunded_order(self) -> None:
-        report = provider_answering(replying(recorded("status_reversed"))).report(RECORDED_ORDER)
-        assert report.state is PaymentState.REVERSED
-        assert report.refunded == Money(20000, Currency.EUR)
+    def test_the_charge_is_what_the_card_paid_not_what_was_asked(self) -> None:
+        reply = signed_status(
+            order_status="approved",
+            amount="20000",
+            currency="EUR",
+            actual_amount="20100",
+            actual_currency="USD",
+            reversal_amount="0",
+        )
+        report = provider_answering(replying(reply)).report(RECORDED_ORDER)
+        assert report == Charged(Money(20100, Currency.USD), Money(0, Currency.USD))
+
+    def test_a_full_reversal_without_an_amount_refunds_the_whole_charge(self) -> None:
+        reply = signed_status(order_status="reversed", actual_amount="20000", actual_currency="EUR")
+        report = provider_answering(replying(reply)).report(RECORDED_ORDER)
+        assert report == Charged(Money(20000, EUR), Money(20000, EUR))
 
     @pytest.mark.parametrize(
-        ("flitt_status", "state"),
+        ("flitt_status", "outcome"),
         [
-            ("created", PaymentState.PENDING),
-            ("processing", PaymentState.PENDING),
-            ("declined", PaymentState.DECLINED),
-            ("expired", PaymentState.EXPIRED),
+            ("created", Outcome.PENDING),
+            ("processing", Outcome.PENDING),
+            ("declined", Outcome.DECLINED),
+            ("expired", Outcome.EXPIRED),
         ],
     )
-    def test_unpaid_states(self, flitt_status: str, state: PaymentState) -> None:
-        reply = {
-            "order_id": RECORDED_ORDER,
-            "order_status": flitt_status,
-            "response_status": "success",
-        }
-        reply["signature"] = SIGNER.sign(reply)
-        report = provider_answering(replying({"response": reply})).report(RECORDED_ORDER)
-        assert report.state is state
-        assert report.charged is None
+    def test_unpaid_states(self, flitt_status: str, outcome: Outcome) -> None:
+        report = provider_answering(replying(signed_status(order_status=flitt_status))).report(
+            RECORDED_ORDER
+        )
+        assert report == NotCharged(outcome)
 
-    def test_a_tampered_reply_is_rejected(self) -> None:
-        reply = recorded("status_approved")
-        reply["response"]["actual_amount"] = "1"
-        with pytest.raises(PaymentProviderError, match="signature"):
+    @pytest.mark.parametrize(
+        "reply",
+        [
+            tampered_status(),
+            signed_status(order_status="weird"),
+            signed_status(order_status="approved", actual_currency="EUR"),
+            signed_status(order_status="approved", actual_amount="1.5", actual_currency="EUR"),
+            signed_status(order_status="approved", actual_amount="100", actual_currency="RUB"),
+        ],
+        ids=["tampered", "unknown-status", "no-amount", "fractional-amount", "foreign-currency"],
+    )
+    def test_unusable_status_replies(self, reply: dict[str, Any]) -> None:
+        with pytest.raises(PaymentProviderError):
             provider_answering(replying(reply)).report(RECORDED_ORDER)
 
-    def test_a_reply_about_another_order_is_rejected(self) -> None:
+    def test_a_reply_about_another_order(self) -> None:
         with pytest.raises(PaymentProviderError, match="answered for order"):
             provider_answering(replying(recorded("status_approved"))).report(OrderId("other"))
 
-    def test_an_unknown_status_is_rejected(self) -> None:
-        reply = {"order_id": RECORDED_ORDER, "order_status": "weird", "response_status": "success"}
-        reply["signature"] = SIGNER.sign(reply)
-        with pytest.raises(PaymentProviderError, match="order_status"):
-            provider_answering(replying({"response": reply})).report(RECORDED_ORDER)
-
-    def test_unknown_order(self) -> None:
+    def test_recorded_unknown_order(self) -> None:
         with pytest.raises(OrderNotFoundError):
             provider_answering(replying(recorded("status_not_found"))).report(RECORDED_ORDER)
-
-
-class TestRefund:
-    def test_sends_the_amount_and_the_idempotency_key(self) -> None:
-        seen: list[httpx.Request] = []
-        status = provider_answering(replying(recorded("reverse_partial"), seen)).refund(
-            RECORDED_ORDER, Money(5000, Currency.EUR), "refund-1"
-        )
-        assert status is RefundStatus.APPROVED
-        fields = request_fields(seen[0])
-        assert str(seen[0].url) == "https://pay.flitt.com/api/reverse/order_id"
-        assert (fields["amount"], fields["currency"], fields["reverse_id"]) == (
-            5000,
-            "EUR",
-            "refund-1",
-        )
-        assert SIGNER.verify(fields)
-
-    @pytest.mark.parametrize(
-        ("flitt_status", "status"),
-        [("processing", RefundStatus.PENDING), ("declined", RefundStatus.DECLINED)],
-    )
-    def test_maps_refund_states(self, flitt_status: str, status: RefundStatus) -> None:
-        reply = {
-            "order_id": RECORDED_ORDER,
-            "reverse_status": flitt_status,
-            "response_status": "success",
-        }
-        reply["signature"] = SIGNER.sign(reply)
-        provider = provider_answering(replying({"response": reply}))
-        assert provider.refund(RECORDED_ORDER, Money(5000, Currency.EUR), "r") is status
-
-
-class TestNotification:
-    def notification(self, **changes: Any) -> dict[str, Any]:
-        fields: dict[str, Any] = {**recorded("status_approved")["response"], **changes}
-        fields["signature"] = SIGNER.sign(fields)
-        return fields
-
-    def test_returns_the_order_of_a_signed_notification(self) -> None:
-        provider = provider_answering(lambda _: httpx.Response(500))
-        assert provider.verify_notification(self.notification()) == RECORDED_ORDER
-
-    def test_rejects_forgery_and_foreign_merchants(self) -> None:
-        provider = provider_answering(lambda _: httpx.Response(500))
-        forged = self.notification()
-        forged["order_status"] = "approved-by-attacker"
-        with pytest.raises(InvalidNotificationError, match="signature"):
-            provider.verify_notification(forged)
-        with pytest.raises(InvalidNotificationError, match="another merchant"):
-            provider.verify_notification(self.notification(merchant_id=1))
-        with pytest.raises(InvalidNotificationError, match="order_id"):
-            provider.verify_notification(self.notification(order_id=""))

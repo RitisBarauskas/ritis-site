@@ -1,7 +1,7 @@
 """Against Flitt's public test merchant. Run explicitly: uv run pytest -m live
 
-Proves what recorded replies cannot: Flitt accepts our signatures today, and its own
-signatures on status replies pass our check.
+Proves what recorded replies cannot: Flitt accepts our signatures today, and its own signature
+on a status reply passes our check.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import pytest
 from ritis_api.adapters.flitt import FlittPaymentProvider
 from ritis_api.domain.identifiers import OrderId
 from ritis_api.domain.money import Currency, Money
-from ritis_api.domain.payment import PaymentState
+from ritis_api.domain.payment import NotCharged, Outcome
 from ritis_api.ports.payments import CheckoutRequest, OrderNotFoundError
 
 pytestmark = pytest.mark.live
@@ -44,7 +44,7 @@ def test_open_checkout_then_read_its_signed_status(provider: FlittPaymentProvide
         )
     )
     assert checkout.checkout_url.startswith("https://pay.flitt.com/")
-    assert provider.report(order_id).state is PaymentState.PENDING
+    assert provider.report(order_id) == NotCharged(Outcome.PENDING)
 
 
 def test_unknown_order(provider: FlittPaymentProvider) -> None:

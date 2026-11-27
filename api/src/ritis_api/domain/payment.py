@@ -1,3 +1,5 @@
+"""What a payment provider reports about an order, and one payment attempt of a booking."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,39 +10,35 @@ from ritis_api.domain.identifiers import OrderId
 from ritis_api.domain.money import Money
 
 
-class PaymentState(StrEnum):
-    """An order's state as the payment provider reports it."""
-
+class Outcome(StrEnum):
     PENDING = "pending"
-    APPROVED = "approved"
     DECLINED = "declined"
     EXPIRED = "expired"
-    # Approved, then refunded in full.
-    REVERSED = "reversed"
 
 
 @dataclass(frozen=True, slots=True)
-class PaymentReport:
-    """What the provider says about one order right now. The provider is the source of truth."""
+class NotCharged:
+    """The provider has taken no money on the order: not yet, or not at all."""
 
-    state: PaymentState
-    charged: Money | None = None
-    # Cumulative: everything refunded on this order so far.
-    refunded: Money | None = None
+    outcome: Outcome
+
+
+@dataclass(frozen=True, slots=True)
+class Charged:
+    """The provider took `amount`; `refunded` is everything returned since, in total."""
+
+    amount: Money
+    refunded: Money
 
     def __post_init__(self) -> None:
-        took_money = self.state in {PaymentState.APPROVED, PaymentState.REVERSED}
-        if took_money and self.charged is None:
-            raise ValueError(f"a {self.state} report must say how much was charged")
-        if not took_money and (self.charged is not None or self.refunded is not None):
-            raise ValueError(f"a {self.state} report cannot carry amounts")
+        if self.refunded.currency is not self.amount.currency:
+            raise ValueError(
+                f"refund in {self.refunded.currency} of a charge in {self.amount.currency}"
+            )
 
-    @property
-    def refunded_total(self) -> Money | None:
-        if self.refunded is not None:
-            return self.refunded
-        # A full reversal may come without the amount; it then equals the charge.
-        return self.charged if self.state is PaymentState.REVERSED else None
+
+# The provider is the source of truth about money; a report is what it says right now.
+PaymentReport = NotCharged | Charged
 
 
 class AttemptStatus(StrEnum):
@@ -48,20 +46,24 @@ class AttemptStatus(StrEnum):
     APPROVED = "approved"
     DECLINED = "declined"
     EXPIRED = "expired"
-    # The provider never opened a checkout for this attempt (an error or a duplicate order id).
+    # The provider never handed out a checkout for this attempt.
     FAILED = "failed"
 
 
 @dataclass(slots=True)
 class PaymentAttempt:
-    """One order at the payment provider, made for one booking."""
+    """One order at one provider, made for one booking."""
 
     order_id: OrderId
-    amount: Money
-    refunded: Money
+    provider: str
+    price: Money
     created_at: datetime
     status: AttemptStatus = AttemptStatus.PENDING
+    # As the provider reports them; may differ from `price`, which is then a case for a human.
+    charged: Money | None = None
+    refunded: Money | None = None
     checkout_url: str | None = None
+    # For finding the payment in the provider's merchant portal.
     provider_payment_id: str | None = None
 
     @property
@@ -70,7 +72,5 @@ class PaymentAttempt:
         return self.status is AttemptStatus.PENDING and self.checkout_url is not None
 
     @property
-    def refundable(self) -> Money:
-        if self.status is not AttemptStatus.APPROVED:
-            return Money.zero(self.amount.currency)
-        return self.amount - self.refunded
+    def refunded_in_full(self) -> bool:
+        return self.charged is not None and self.refunded == self.charged

@@ -67,6 +67,16 @@ test.describe('страница', () => {
 
     expect(unsafe).toEqual([]);
   });
+
+  test('цены из каталога, разряды через неразрывный пробел', async ({ page }) => {
+    await page.goto('/');
+
+    // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
+    const prices = await page.locator('#help .price b').allTextContents();
+
+    const nbsp = String.fromCharCode(0xa0);
+    expect(prices).toEqual(['€200', `от €2${nbsp}000`, 'от €500', `от €1${nbsp}000/мес`]);
+  });
 });
 
 test.describe('тема', () => {

@@ -34,9 +34,9 @@ import { bookingPrice, payments } from '../site.config';
         <!-- Hidden from people; bots fill it in, and the API refuses the request. Named so that
              autofill leaves it alone. -->
         <div class="hp" aria-hidden="true"><label>Дополнительно<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
-        <label class="consent paid-only"><input type="checkbox" name="consent" id="consent" required><span>Принимаю <a href="/offer/" target="_blank">оферту</a>, с <a href="/privacy/" target="_blank">политикой конфиденциальности</a> ознакомлен</span></label>
+        <label class="consent paid-only"><input type="checkbox" name="consent" id="consent" required><span>Принимаю <a href="/offer/" target="_blank">оферту</a>; <a href="/privacy/" target="_blank">политика конфиденциальности</a> мне известна</span></label>
         <!-- Without this request the refund terms could not keep the cost of work already done. -->
-        <label class="consent paid-only"><input type="checkbox" name="start_immediately" id="start-now" required><span>Прошу начать работу сразу после оплаты. Если откажусь, оплачу уже выполненную часть работы, а после передачи результата отказаться будет нельзя, кроме случаев его недостатков</span></label>
+        <label class="consent paid-only"><input type="checkbox" name="start_immediately" id="start-now" required><span>Прошу начать работу сразу после оплаты. Если откажусь, оплачу этапы, уже переданные в репозиторий, и сервисы, купленные для заказа; после передачи результата отказаться будет нельзя, кроме случаев его недостатков. <a href="/refund/" target="_blank">Условия возврата</a></span></label>
         <p class="dlg-error" id="book-error" role="alert" hidden></p>
         <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {bookingPrice.start} →</button>
       </fieldset>
@@ -91,7 +91,7 @@ import { bookingPrice, payments } from '../site.config';
   const PAY: Record<PaidFormat, { label: string; text: string }> = {
     start: {
       label: 'К оплате',
-      text: ' — созвон по задаче и репозиторий под неё в течение 5 рабочих дней.',
+      text: ' — созвон по задаче, а через 5 рабочих дней после него — репозиторий под неё.',
     },
     launch: {
       label: 'К оплате',

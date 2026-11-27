@@ -41,7 +41,9 @@ def test_charges_and_names_the_format_that_was_booked(
 def test_records_which_revision_of_the_offer_the_customer_accepted(
     repository: InMemoryBookingRepository, provider: FakeProvider, clock: Clock
 ) -> None:
-    catalog = Catalog({fmt: Offer(PRICE, "order") for fmt in BookingFormat}, date(2027, 2, 1))
+    catalog = Catalog(
+        {fmt: Offer(PRICE, "ritis.dev — заказ") for fmt in BookingFormat}, date(2027, 2, 1)
+    )
     open_booking = make_open_booking(repository, provider, clock, catalog=catalog)
 
     booking = open_booking.start(start_command())

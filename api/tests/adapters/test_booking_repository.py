@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 
 import pytest
@@ -37,6 +38,16 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
     )
     new.start_attempt(OrderId("order-1"), "fake", NOW)
     return new
+
+
+def test_reads_back_what_was_stored(repository: BookingRepository) -> None:
+    # Every field counts: the accepted offer revision settles refund and chargeback disputes.
+    stored = booking()
+    repository.add(stored)
+
+    loaded = repository.get(stored.id)
+
+    assert replace(loaded, version=0) == replace(stored, version=0)
 
 
 def test_changes_are_kept_only_when_saved(repository: BookingRepository) -> None:

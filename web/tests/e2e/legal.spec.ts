@@ -1,4 +1,10 @@
+import { createHash } from 'node:crypto';
 import { expect, test } from './fixtures';
+
+// The offer as a customer accepts it: its page (with the refund terms and prices) and the two
+// checkboxes of the booking dialog. Changing any of it makes a new revision of the offer: set
+// offer_revision in shared/catalog.json to the publication date, then update this hash.
+const OFFER_TEXT_SHA256 = 'ee4768d4924637cefa1e903e1067245e8ee896e097023d9f9dcb7b078de66904';
 
 const PAGES: Array<[string, string, string]> = [
   ['Оферта', '/offer/', 'Публичная оферта'],
@@ -26,7 +32,7 @@ test.describe('юридические страницы', () => {
     const consent = page.locator('#book');
 
     await expect(consent.getByRole('link', { name: 'оферту' })).toHaveAttribute('href', '/offer/');
-    await expect(consent.getByRole('link', { name: 'политикой конфиденциальности' })).toHaveAttribute('href', '/privacy/');
+    await expect(consent.getByRole('link', { name: 'политика конфиденциальности' })).toHaveAttribute('href', '/privacy/');
   });
 
   test('внутренние ссылки ведут на существующие страницы и разделы', async ({ page, request }) => {
@@ -55,6 +61,18 @@ test.describe('юридические страницы', () => {
     await page.goto('/offer/');
 
     await expect(page.locator('#refund + ol.refund')).toHaveText(standalone);
+  });
+
+  test('текст оферты меняется только вместе с датой редакции', async ({ page }) => {
+    const text = (s: string | null) => (s ?? '').replace(/\s+/g, ' ').trim();
+    await page.goto('/offer/');
+    const offer = text(await page.locator('main').textContent());
+    await page.goto('/');
+    const checkboxes = (await page.locator('#book .paid-only').allTextContents()).map(text);
+
+    const hash = createHash('sha256').update([offer, ...checkboxes].join('\n')).digest('hex');
+
+    expect(hash).toBe(OFFER_TEXT_SHA256);
   });
 
   test('в оферте у каждого формата своя цена', async ({ page }) => {

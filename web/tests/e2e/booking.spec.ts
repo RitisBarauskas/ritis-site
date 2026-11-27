@@ -93,14 +93,19 @@ test.describe('оплата из окна брони', () => {
     await page.locator('#book-submit').click();
     await expect(page.locator('#book-submit')).toHaveText('Открываем оплату…');
     await expect(page.getByLabel('Почта или Telegram')).toBeDisabled();
-    const cancelled = page.waitForEvent('requestfailed', (request) => request.url().endsWith('/api/bookings'));
+    // Well before the request's own 20 s timeout, which would drop it too.
+    const cancelled = page.waitForEvent('requestfailed', {
+      predicate: (request) => request.url().endsWith('/api/bookings'),
+      timeout: 5000,
+    });
 
     await page.keyboard.press('Escape');
 
     // The browser drops the request: there is no answer left to lead anywhere.
     await cancelled;
     release();
-    await expect(page.locator('#book-error')).toBeHidden();
+    // The attribute, not visibility: everything in a closed dialog is invisible.
+    await expect(page.locator('#book-error')).toHaveAttribute('hidden');
     await expect(page.getByLabel('Почта или Telegram')).toBeEnabled();
     await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
   });
@@ -247,6 +252,7 @@ test.describe('страница брони', () => {
 
     await expect(page.locator('#booking-title')).toHaveText('Оплата пока не подтвердилась');
     // Its text sends the customer back to the checkout, which is still open.
+    await expect(page.locator('#booking-resume')).toBeVisible();
     await expect(page.locator('#booking-resume')).toHaveAttribute('href', `${CHECKOUT}#20`);
     expect(calls()).toBe(20);
     const again = asksAgain(page);

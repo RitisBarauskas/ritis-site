@@ -1,4 +1,5 @@
 /** The booking API as the browser sees it (api/src/ritis_api/http): no personal data comes back. */
+import type { Locale } from '../i18n/locales';
 
 const STATUSES = ['awaiting_payment', 'paid', 'declined', 'expired', 'refunded', 'needs_review'] as const;
 
@@ -22,6 +23,8 @@ export interface BookingRequest {
   links: string;
   consent: boolean;
   start_immediately: boolean;
+  /** The page's language: the offer the customer read, the checkout and the way back follow it. */
+  language: Locale;
   website: string; // honeypot: stays empty for people
 }
 

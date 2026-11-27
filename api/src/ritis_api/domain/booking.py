@@ -37,6 +37,18 @@ class BookingFormat(StrEnum):
     SUBSCRIPTION = "subscription"
 
 
+class Language(StrEnum):
+    """The language the customer booked in: the offer they read, the checkout and the order
+    description follow it. A consumer may rely on the offer in this language (offer, 1.4).
+
+    The values are stored with bookings: renaming one is a data migration.
+    """
+
+    RU = "ru"
+    KA = "ka"
+    EN = "en"
+
+
 class BookingStatus(StrEnum):
     AWAITING_PAYMENT = "awaiting_payment"
     PAID = "paid"
@@ -71,6 +83,7 @@ class Booking:
     # The offer the customer accepted at created_at, asking to start work at once: what a
     # refund or a chargeback dispute is settled by.
     offer_revision: date
+    language: Language
     status: BookingStatus = BookingStatus.AWAITING_PAYMENT
     attempts: list[PaymentAttempt] = field(default_factory=list)
     paid_at: datetime | None = None
@@ -88,6 +101,7 @@ class Booking:
         customer: Customer,
         price: Money,
         offer_revision: date,
+        language: Language,
         now: datetime,
     ) -> Booking:
         return cls(
@@ -98,6 +112,7 @@ class Booking:
             price=price,
             created_at=now,
             offer_revision=offer_revision,
+            language=language,
         )
 
     # --- queries -------------------------------------------------------------------------

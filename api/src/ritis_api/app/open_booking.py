@@ -7,7 +7,13 @@ from dataclasses import dataclass
 
 from ritis_api.app.catalog import Catalog
 from ritis_api.app.runtime import Clock, IdFactory
-from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer
+from ritis_api.domain.booking import (
+    Booking,
+    BookingFormat,
+    BookingStatus,
+    Customer,
+    Language,
+)
 from ritis_api.domain.errors import BookingError
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.payment import AttemptStatus
@@ -28,13 +34,12 @@ class IdempotencyKeyReusedError(Exception):
 @dataclass(frozen=True, slots=True)
 class CheckoutSettings:
     # Built by the composition root from the provider's inbound routes.
-    return_url_template: str  # with a "{booking_id}" placeholder
+    return_url_template: str  # with "{booking_id}" and "{language}" placeholders
     notification_url: str
     lifetime_seconds: int
-    language: str = "ru"
 
-    def return_url(self, booking_id: BookingId) -> str:
-        return self.return_url_template.format(booking_id=booking_id)
+    def return_url(self, booking_id: BookingId, language: Language) -> str:
+        return self.return_url_template.format(booking_id=booking_id, language=language.value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +48,7 @@ class StartBooking:
     idempotency_key: str
     booking_format: BookingFormat
     customer: Customer
+    language: Language
 
 
 class OpenBooking:
@@ -74,6 +80,7 @@ class OpenBooking:
             customer=command.customer,
             price=self._catalog.offer(command.booking_format).price,
             offer_revision=self._catalog.offer_revision,
+            language=command.language,
             now=self._clock(),
         )
         order_id = self._new_attempt(booking)
@@ -98,7 +105,8 @@ class OpenBooking:
         return booking
 
     def _repeat(self, booking: Booking, command: StartBooking) -> Booking:
-        if (booking.format, booking.customer) != (command.booking_format, command.customer):
+        asked = (command.booking_format, command.customer, command.language)
+        if (booking.format, booking.customer, booking.language) != asked:
             raise IdempotencyKeyReusedError(command.idempotency_key)
         return self._ensure_checkout(booking)
 
@@ -139,11 +147,11 @@ class OpenBooking:
         return CheckoutRequest(
             order_id=order_id,
             amount=booking.price,
-            description=self._catalog.offer(booking.format).description,
-            return_url=self._settings.return_url(booking.id),
+            description=self._catalog.offer(booking.format).description(booking.language),
+            return_url=self._settings.return_url(booking.id, booking.language),
             notification_url=self._settings.notification_url,
             lifetime_seconds=self._settings.lifetime_seconds,
-            language=self._settings.language,
+            language=booking.language.value,
             customer_email=contact if _EMAIL.match(contact) else None,
         )
 

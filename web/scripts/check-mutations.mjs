@@ -63,6 +63,7 @@ const MUTATIONS = [
   M(DIALOG, 'if (payload !== this.payload) {', "if (this.key === '') {", 'исправленная после сбоя анкета'),
   M(DIALOG, 'if (box) box.required = !isFree();', 'if (box) box.required = false;', 'без согласия с офертой'),
   M(DIALOG, 'start_immediately: startNow.checked,', 'start_immediately: false,', 'анкета уходит в API и ведёт на страницу оплаты'),
+  M(DIALOG, 'language: locale,', "language: 'ru',", 'бронь на английском без открытой оплаты'),
   M(DIALOG, 'tabindex="-1" autocomplete="off"', 'autocomplete="off"', 'ловушка для ботов'),
   M(DIALOG, "booking.checkout_url ?? `${localized(locale, '/booking/')}?id=", "booking.checkout_url ?? `${localized(locale, '/')}?id=", 'повтор уже оплаченной анкеты'),
   M(DIALOG, 'if (!event.persisted) return;', 'return;', 'возврат со страницы оплаты кнопкой «Назад» окно брони'),
@@ -114,6 +115,7 @@ const MUTATIONS = [
   M(CLIENT_TEXT, 'return isLocale(lang) ? lang : DEFAULT_LOCALE;', 'return DEFAULT_LOCALE;', 'бронь на английском окно говорит'),
   M(DIALOG, "booking.checkout_url ?? `${localized(locale, '/booking/')}?id=", 'booking.checkout_url ?? `/booking/?id=', 'бронь на английском без открытой оплаты'),
   M('src/site.config.ts', "en: { amount: (n) => `₾${n}`,", 'en: { amount: (n) => `${n} ₾`,', '[en] цены из каталога'),
+  M('src/i18n/ka.ts', String.raw`'კურს\u00ADდამთავრებულმა`, "'კურსდამთავრებულმა", '[ka] на ширине 390 текст не вылезает'),
   M('src/legal/index.ts', 'en: { Offer: EnOffer, Refund: EnRefund, Privacy: EnPrivacy, Details: EnDetails },', 'en: ru,', 'страницы [en] /en/offer/: объявляет свой язык'),
   // Proves the broken-script path: this one must not count as caught.
   M(DIALOG, "byId('book-fields', HTMLFieldSetElement)", "byId('no-such-id', HTMLFieldSetElement)", 'анкета уходит в API', 'BROKEN (script)'),

@@ -1,11 +1,11 @@
 /** The site's languages. Russian is the default and lives at the root; the others under /ka/, /en/. */
-export const LOCALES = ['ru', 'en'] as const;
+export const LOCALES = ['ru', 'ka', 'en'] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'ru';
 
 /** How each language names itself, for the switcher. */
-export const LANGUAGE_NAMES: Record<Locale, string> = { ru: 'Русский', en: 'English' };
-export const LANGUAGE_CODES: Record<Locale, string> = { ru: 'RU', en: 'EN' };
+export const LANGUAGE_NAMES: Record<Locale, string> = { ru: 'Русский', ka: 'ქართული', en: 'English' };
+export const LANGUAGE_CODES: Record<Locale, string> = { ru: 'RU', ka: 'KA', en: 'EN' };
 
 export const isLocale = (value: unknown): value is Locale => LOCALES.includes(value as Locale);
 

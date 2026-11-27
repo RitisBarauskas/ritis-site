@@ -57,6 +57,7 @@ def test_the_same_key_with_other_data_is_refused(
         ({"price": 1}, KEY),
         ({"name": "   "}, KEY),
         ({"about": "x" * 2001}, KEY),
+        ({"language": "de"}, KEY),
     ],
     ids=[
         "no-key",
@@ -69,6 +70,7 @@ def test_the_same_key_with_other_data_is_refused(
         "client-price",
         "blank-name",
         "long-about",
+        "unknown-language",
     ],
 )
 def test_bad_requests_never_reach_the_provider(

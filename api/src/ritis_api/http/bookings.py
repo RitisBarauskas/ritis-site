@@ -24,7 +24,10 @@ def bookings_router(open_booking: OpenBooking, confirm_payment: ConfirmPayment) 
             name=body.name, contact=body.contact, about=body.about, links=body.links
         )
         command = StartBooking(
-            idempotency_key=idempotency_key, booking_format=body.format, customer=customer
+            idempotency_key=idempotency_key,
+            booking_format=body.format,
+            customer=customer,
+            language=body.language,
         )
         return BookingView.of(open_booking.start(command))
 

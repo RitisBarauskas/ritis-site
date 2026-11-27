@@ -41,6 +41,7 @@ test.describe('оплата из окна брони', () => {
       links: '',
       consent: true,
       start_immediately: true,
+      language: 'ru',
       website: '',
     });
   });

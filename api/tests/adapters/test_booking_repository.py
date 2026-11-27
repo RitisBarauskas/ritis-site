@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
-from ritis_api.domain.booking import Booking, BookingFormat, Customer
+from ritis_api.domain.booking import Booking, BookingFormat, Customer, Language
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
 from ritis_api.ports.storage import (
@@ -34,6 +34,7 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=Money(20000, Currency.EUR),
         offer_revision=date(2026, 11, 27),
+        language=Language.KA,
         now=NOW,
     )
     new.start_attempt(OrderId("order-1"), "fake", NOW)

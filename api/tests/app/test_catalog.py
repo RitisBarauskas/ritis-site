@@ -11,23 +11,32 @@ import pytest
 from pydantic import ValidationError
 
 from ritis_api.app.catalog import load_catalog
-from ritis_api.domain.booking import BookingFormat
+from ritis_api.domain.booking import BookingFormat, Language
 from ritis_api.domain.money import Currency, Money
 
 SHARED_CATALOG = Path(__file__).resolve().parents[3] / "shared" / "catalog.json"
+
+
+def described(name: str) -> dict[str, str]:
+    return {"ru": f"{name} ru", "ka": f"{name} ka", "en": f"{name} en"}
+
 
 VALID: dict[str, Any] = {
     "currency": "EUR",
     "offer_revision": "2026-11-27",
     "formats": {
-        "start": {"price_minor": 100, "description": "start"},
-        "launch": {"price_minor": 300, "description": "launch"},
-        "foundation": {"starts_with": "start", "from_minor": 1000, "description": "foundation"},
+        "start": {"price_minor": 100, "description": described("start")},
+        "launch": {"price_minor": 300, "description": described("launch")},
+        "foundation": {
+            "starts_with": "start",
+            "from_minor": 1000,
+            "description": described("foundation"),
+        },
         "subscription": {
             "starts_with": "start",
             "from_minor": 500,
             "per": "month",
-            "description": "subscription",
+            "description": described("subscription"),
         },
     },
 }
@@ -50,8 +59,12 @@ def test_reads_the_catalog_the_site_is_built_from() -> None:
         BookingFormat.SUBSCRIPTION: Money(60000, Currency.GEL),
     }
     assert catalog.offer_revision == date(2026, 11, 27)
-    # The customer sees at the payment provider which format they paid for.
-    assert len({catalog.offer(fmt).description for fmt in BookingFormat}) == len(BookingFormat)
+    # The customer sees at the payment provider which format they paid for, in their language.
+    descriptions = {
+        catalog.offer(fmt).description(lang) for fmt in BookingFormat for lang in Language
+    }
+    assert len(descriptions) == len(BookingFormat) * len(Language)
+    assert catalog.offer(BookingFormat.START).description(Language.EN).startswith("ritis.dev — ")
 
 
 def test_a_package_is_booked_at_the_price_of_the_format_it_starts_with(tmp_path: Path) -> None:
@@ -59,7 +72,7 @@ def test_a_package_is_booked_at_the_price_of_the_format_it_starts_with(tmp_path:
 
     assert catalog.offer(BookingFormat.FOUNDATION).price == Money(100, Currency.EUR)
     assert catalog.offer(BookingFormat.LAUNCH).price == Money(300, Currency.EUR)
-    assert catalog.offer(BookingFormat.FOUNDATION).description == "foundation"
+    assert catalog.offer(BookingFormat.FOUNDATION).description(Language.KA) == "foundation ka"
 
 
 def _drop_format(c: dict[str, Any]) -> None:
@@ -67,7 +80,7 @@ def _drop_format(c: dict[str, Any]) -> None:
 
 
 def _unknown_format(c: dict[str, Any]) -> None:
-    c["formats"]["teardown"] = {"price_minor": 100, "description": "free"}
+    c["formats"]["teardown"] = {"price_minor": 100, "description": described("free")}
 
 
 def _both_prices(c: dict[str, Any]) -> None:
@@ -99,7 +112,15 @@ def _old_layout(c: dict[str, Any]) -> None:
 
 
 def _empty_description(c: dict[str, Any]) -> None:
-    c["formats"]["launch"]["description"] = ""
+    c["formats"]["launch"]["description"]["en"] = ""
+
+
+def _no_georgian_description(c: dict[str, Any]) -> None:
+    del c["formats"]["launch"]["description"]["ka"]
+
+
+def _description_in_an_unknown_language(c: dict[str, Any]) -> None:
+    c["formats"]["launch"]["description"]["de"] = "launch de"
 
 
 def _no_offer_revision(c: dict[str, Any]) -> None:
@@ -119,6 +140,8 @@ def _no_offer_revision(c: dict[str, Any]) -> None:
         _unknown_field,
         _old_layout,
         _empty_description,
+        _no_georgian_description,
+        _description_in_an_unknown_language,
         _no_offer_revision,
     ],
 )

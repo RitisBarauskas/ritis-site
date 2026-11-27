@@ -24,6 +24,7 @@ interface MoneyStyle {
  */
 const MONEY: Record<Locale, MoneyStyle> = {
   ru: { amount: (n) => `${n}${NBSP}₾`, from: (p) => `от ${p}`, month: '/мес', group: NBSP },
+  ka: { amount: (n) => `${n}${NBSP}₾`, from: (p) => `${p}-დან`, month: `${NBSP}თვეში`, group: NBSP },
   en: { amount: (n) => `₾${n}`, from: (p) => `from ${p}`, month: '/month', group: ',' },
 };
 
@@ -70,6 +71,7 @@ export const bookingPricesIn = (locale: Locale): Prices => ({
 
 const MONTHS: Record<Locale, string[]> = {
   ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+  ka: ['იანვარი', 'თებერვალი', 'მარტი', 'აპრილი', 'მაისი', 'ივნისი', 'ივლისი', 'აგვისტო', 'სექტემბერი', 'ოქტომბერი', 'ნოემბერი', 'დეკემბერი'],
   en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
 };
 
@@ -77,7 +79,9 @@ const MONTHS: Record<Locale, string[]> = {
 export function legalDate(locale: Locale, iso: string): string {
   const [year, month, day] = iso.split('-').map(Number);
   const name = MONTHS[locale][month - 1];
-  return locale === 'ru' ? `${day} ${name} ${year} года` : `${day} ${name} ${year}`;
+  if (locale === 'ru') return `${day} ${name} ${year} года`;
+  if (locale === 'ka') return `${year} წლის ${day} ${name}`;
+  return `${day} ${name} ${year}`;
 }
 
 /** The offer in force, from the catalog the API stamps on every booking; the refund terms share it. */

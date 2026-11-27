@@ -1,0 +1,13 @@
+---
+import Legal from '../../layouts/Legal.astro';
+import { links } from '../../site.config';
+import Requisites from '../Requisites.astro';
+---
+<Legal title="რეკვიზიტები და კონტაქტები" description="ვინ ყიდის მომსახურებას ritis.dev-ზე და როგორ დავუკავშირდეთ მას." revised="2026-11-27">
+  <Requisites />
+  <h2>კავშირი</h2>
+  <p>შეკვეთების, გადახდისა და თანხის დაბრუნების საკითხებზე — <a href={`mailto:${links.email}`}>{links.email}</a>. ვპასუხობ ერთი სამუშაო დღის განმავლობაში.</p>
+  <p>სიახლეები და ვიდეოები, რუსულ ენაზე — <a href={links.telegram} target="_blank" rel="noopener">Telegram-არხი</a> და <a href={links.youtube} target="_blank" rel="noopener">YouTube</a>.</p>
+  <h2>გადახდა</h2>
+  <p>ფასები ლარშია მითითებული და თანხაც ლარში ჩამოიწერება, Visa და Mastercard ბარათებით, გადახდის პროვაიდერ Flitt-ის მეშვეობით. პირობები — <a href="/ka/offer/">საჯარო ოფერტასა</a> და <a href="/ka/refund/">თანხის დაბრუნების პირობებში</a>.</p>
+</Legal>

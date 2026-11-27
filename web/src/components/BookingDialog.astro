@@ -118,6 +118,7 @@ const t = contentIn(locale).dialog;
       links: field('links'),
       consent: consent.checked,
       start_immediately: startNow.checked,
+      language: locale,
       website: String(data.get('leave_empty') ?? ''),
     };
   }

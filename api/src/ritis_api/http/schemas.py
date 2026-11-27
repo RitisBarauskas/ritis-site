@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus
+from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Language
 from ritis_api.domain.money import Currency
 
 BOOKING_ID_PATTERN = r"^[0-9a-f]{32}$"
@@ -23,6 +23,8 @@ class BookingCreate(BaseModel):
     consent: bool
     # The refund terms keep the cost of work done only if the customer asked to start at once.
     start_immediately: bool
+    # The site's language: the offer the customer read is in it, and so is the checkout.
+    language: Language
     # Honeypot: hidden from people, filled in by bots.
     website: str = Field(default="", max_length=200)
 

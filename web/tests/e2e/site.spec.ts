@@ -4,7 +4,7 @@ import { expect, test } from './fixtures';
 const FAVICON = /\/favicon\.ico$/;
 const NBSP = String.fromCharCode(0xa0);
 /** The home page of each language: its layout differs with the length of its texts. */
-const HOMES: Record<string, string> = { ru: '/', en: '/en/' };
+const HOMES: Record<string, string> = { ru: '/', ka: '/ka/', en: '/en/' };
 
 async function collectErrors(page: Page): Promise<string[]> {
   const errors: string[] = [];
@@ -26,7 +26,7 @@ test.describe('страница', () => {
       expect(errors).toEqual([]);
     });
 
-    for (const width of [390, 820, 1440]) {
+    for (const width of [390, 820, 1024, 1440]) {
       test(`[${locale}] не даёт горизонтальной прокрутки на ширине ${width} ни на одной вкладке демо`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.goto(home);
@@ -40,6 +40,32 @@ test.describe('страница', () => {
 
         expect(overflow).toEqual([0, 0, 0]);
       });
+
+      if (width === 390) {
+        test(`[${locale}] на ширине 390 текст не вылезает за свои блоки`, async ({ page }) => {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(home);
+
+          const clipped = await page.evaluate(() => {
+            const found: string[] = [];
+            // Code scrolls inside its own box; an open question's "+" turns by 45° and pokes out by design.
+            for (const el of document.querySelectorAll('header *, main *, footer *')) {
+              if (el.closest('pre, details') || el.matches('.faq') || getComputedStyle(el).overflowX !== 'visible') continue;
+              if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1) found.push(el.outerHTML.slice(0, 80));
+            }
+            // The questions themselves: no line of one may run past its row.
+            for (const question of document.querySelectorAll('#faq summary')) {
+              const range = document.createRange();
+              range.selectNodeContents(question);
+              const edge = question.getBoundingClientRect().right;
+              if ([...range.getClientRects()].some((line) => line.right > edge + 1)) found.push(question.outerHTML.slice(0, 80));
+            }
+            return found;
+          });
+
+          expect(clipped).toEqual([]);
+        });
+      }
 
       test(`[${locale}] шапка на ширине ${width} умещается в одну строку`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
@@ -103,6 +129,7 @@ test.describe('страница', () => {
   // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
   const PRICES: Record<string, string[]> = {
     ru: [`600${NBSP}₾`, `от 6${NBSP}000${NBSP}₾`, `1${NBSP}500${NBSP}₾`, `от 3${NBSP}000${NBSP}₾/мес`],
+    ka: [`600${NBSP}₾`, `6${NBSP}000${NBSP}₾-დან`, `1${NBSP}500${NBSP}₾`, `3${NBSP}000${NBSP}₾-დან${NBSP}თვეში`],
     en: ['₾600', 'from ₾6,000', '₾1,500', 'from ₾3,000/month'],
   };
   for (const [locale, expected] of Object.entries(PRICES)) {

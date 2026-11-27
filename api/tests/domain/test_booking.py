@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer
+from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer, Language
 from ritis_api.domain.errors import BookingError
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
@@ -39,6 +39,7 @@ def new_booking() -> Booking:
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=PRICE,
         offer_revision=date(2026, 11, 27),
+        language=Language.RU,
         now=NOW,
     )
 

@@ -26,6 +26,7 @@ FORM: dict[str, Any] = {
     "links": "",
     "consent": True,
     "start_immediately": True,
+    "language": "ru",
 }
 
 

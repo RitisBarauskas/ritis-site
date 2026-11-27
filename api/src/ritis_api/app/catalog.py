@@ -9,11 +9,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ritis_api.domain.booking import BookingFormat
+from ritis_api.domain.booking import BookingFormat, Language
 from ritis_api.domain.money import Currency, Money
 
 
@@ -22,7 +22,8 @@ class _Format(BaseModel):
     # A format is booked either at its own price or as the format it starts with.
     price_minor: int | None = Field(default=None, gt=0)
     starts_with: BookingFormat | None = None
-    description: str = Field(min_length=1, max_length=200)
+    # What the customer sees at the payment provider, in each language of the site.
+    description: dict[Language, Annotated[str, Field(min_length=1, max_length=200)]]
     # The full price of a package, which the site shows; the booking does not charge it.
     from_minor: int | None = Field(default=None, gt=0)
     per: Literal["month"] | None = None
@@ -31,6 +32,13 @@ class _Format(BaseModel):
     def _priced_one_way(self) -> Self:
         if (self.price_minor is None) == (self.starts_with is None):
             raise ValueError("a format has either a price of its own or a format it starts with")
+        return self
+
+    @model_validator(mode="after")
+    def _described_in_every_language(self) -> Self:
+        missing = set(Language) - set(self.description)
+        if missing:
+            raise ValueError(f"no description in {sorted(missing)}")
         return self
 
 
@@ -58,7 +66,10 @@ class _CatalogFile(BaseModel):
 @dataclass(frozen=True, slots=True)
 class Offer:
     price: Money  # charged when the format is booked
-    description: str  # what the customer sees at the payment provider
+    descriptions: Mapping[Language, str]  # what the customer sees at the payment provider
+
+    def description(self, language: Language) -> str:
+        return self.descriptions[language]
 
 
 @dataclass(frozen=True, slots=True)

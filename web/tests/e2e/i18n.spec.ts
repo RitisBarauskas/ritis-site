@@ -5,8 +5,14 @@ import { expect, test } from './fixtures';
 
 const PAGES = ['/', '/booking/', '/offer/', '/refund/', '/privacy/', '/details/'];
 /** Where each language lives; Russian, the default, has no prefix. */
-const PREFIX: Record<string, string> = { ru: '', en: '/en' };
+const PREFIX: Record<string, string> = { ru: '', ka: '/ka', en: '/en' };
 const CYRILLIC = /[А-Яа-яЁё]/;
+const GEORGIAN = /[Ⴀ-ჿ]/;
+/** Scripts a page of the language must not show, and the one it must (when it has its own). */
+const SCRIPTS: Record<string, { foreign: RegExp; own?: RegExp }> = {
+  ka: { foreign: CYRILLIC, own: GEORGIAN },
+  en: { foreign: new RegExp(`${CYRILLIC.source}|${GEORGIAN.source}`) },
+};
 
 /**
  * Texts and attributes of the page that match the pattern and are in the page's own language:
@@ -47,25 +53,27 @@ test('проверка чужого текста видит русский на 
   expect((await textsMatching(page, CYRILLIC)).length).toBeGreaterThan(50);
 });
 
-for (const [locale, prefix] of Object.entries(PREFIX).filter(([l]) => l !== 'ru')) {
+for (const [locale, { foreign, own }] of Object.entries(SCRIPTS)) {
+  const prefix = PREFIX[locale];
   test.describe(`страницы [${locale}]`, () => {
     for (const path of PAGES) {
-      test(`${prefix}${path}: объявляет свой язык и не говорит по-русски`, async ({ page }) => {
+      test(`${prefix}${path}: объявляет свой язык и говорит только на нём`, async ({ page }) => {
         await page.goto(`${prefix}${path}`);
 
         await expect(page.locator('html')).toHaveAttribute('lang', locale);
-        expect(await textsMatching(page, CYRILLIC)).toEqual([]);
+        expect(await textsMatching(page, foreign)).toEqual([]);
+        if (own) expect((await textsMatching(page, own)).length).toBeGreaterThan(5);
       });
     }
 
-    test('окно брони без русского ни для одного формата', async ({ page }) => {
+    test('окно брони на языке страницы для каждого формата', async ({ page }) => {
       await page.goto(`${prefix}/`);
       await page.locator('main [data-book="start"]').first().click();
 
       const found: string[] = [];
       for (const format of ['start', 'foundation', 'launch', 'subscription', 'teardown']) {
         await page.locator('#format').selectOption(format);
-        found.push(...(await textsMatching(page, CYRILLIC)));
+        found.push(...(await textsMatching(page, foreign)));
       }
 
       expect(found).toEqual([]);
@@ -100,7 +108,7 @@ test.describe('переключатель языка', () => {
       .locator('header [data-lang-switch]')
       .evaluateAll((all) => all.map((a) => `${a.textContent}:${a.getAttribute('aria-current')}`));
 
-    expect(current).toEqual(['RU:null', 'EN:page']);
+    expect(current).toEqual(['RU:null', 'KA:null', 'EN:page']);
   });
 });
 
@@ -113,6 +121,7 @@ test('каждая страница называет поисковикам се
 
   expect(alternates).toEqual([
     ['ru', 'https://ritis.dev/refund/'],
+    ['ka', 'https://ritis.dev/ka/refund/'],
     ['en', 'https://ritis.dev/en/refund/'],
     ['x-default', 'https://ritis.dev/refund/'],
   ]);
@@ -144,7 +153,11 @@ test.describe('бронь на английском', () => {
   });
 
   test('без открытой оплаты ведёт на страницу брони того же языка', async ({ page }) => {
-    await page.route('**/api/bookings', (route) => route.fulfill({ status: 201, json: booking('paid') }));
+    const languages: unknown[] = [];
+    await page.route('**/api/bookings', (route) => {
+      languages.push(route.request().postDataJSON().language);
+      return route.fulfill({ status: 201, json: booking('paid') });
+    });
     await statusSequence(page, [answer('paid')]);
     await openEnglishDialog(page, 'start');
     await agree(page);
@@ -153,6 +166,8 @@ test.describe('бронь на английском', () => {
 
     await expect(page).toHaveURL(`/en/booking/?id=${ID}`);
     await expect(page.locator('#booking-title')).toHaveText('Paid');
+    // The API needs it too: the checkout and the way back from it speak the same language.
+    expect(languages).toEqual(['en']);
   });
 
   test('бесплатный разбор отвечает на языке страницы', async ({ page }) => {

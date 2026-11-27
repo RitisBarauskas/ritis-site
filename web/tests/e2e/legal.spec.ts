@@ -7,8 +7,9 @@ import { expect, test } from './fixtures';
 // of the offer: set offer_revision in shared/catalog.json to the publication date, then update
 // the hash of every language whose text changed.
 const OFFER_TEXT_SHA256: Record<string, string> = {
-  ru: 'a160ea798e5d31860356d57a55e8606ed838260bef66bbf640eba6f620c2c1e2',
-  en: '7c8be7d8a06b46e27a2957afff151feea583b3a26557a50cb0048238b12c74c8',
+  ru: 'd22675ab8f28351fe2a36b2f2623f4a9e8077f198e3e03da18422c13e8d82347',
+  ka: '1b1a8df996fc22dd01e59760193148910ffebe7a1a9729ae269e8fabdd2fd1d6',
+  en: '33bda4dd86f376fad66c0408c83f1782b9c87ac0d447200ecba02eb976c1b14e',
 };
 
 const NBSP = String.fromCharCode(0xa0);
@@ -28,6 +29,21 @@ const SITES: Record<string, { home: string; pages: Array<[string, string, string
       `Подготовка к запуску — 1${NBSP}500${NBSP}₾`,
       `Фундамент — от 6${NBSP}000${NBSP}₾`,
       `Разработка по подписке — от 3${NBSP}000${NBSP}₾/мес`,
+    ],
+  },
+  ka: {
+    home: '/ka/',
+    pages: [
+      ['საჯარო ოფერტა', '/ka/offer/', 'საჯარო ოფერტა'],
+      ['თანხის დაბრუნება', '/ka/refund/', 'თანხის დაბრუნების პირობები'],
+      ['კონფიდენციალურობა', '/ka/privacy/', 'კონფიდენციალურობის პოლიტიკა'],
+      ['რეკვიზიტები', '/ka/details/', 'რეკვიზიტები და კონტაქტები'],
+    ],
+    offerPrices: [
+      `ტექნიკური სტარტი — 600${NBSP}₾`,
+      `გაშვებისთვის მომზადება — 1${NBSP}500${NBSP}₾`,
+      `ფუნდამენტი — 6${NBSP}000${NBSP}₾-დან`,
+      `შემუშავება გამოწერით — 3${NBSP}000${NBSP}₾-დან${NBSP}თვეში`,
     ],
   },
   en: {
@@ -111,10 +127,10 @@ for (const locale of Object.keys(SITES)) {
   });
 }
 
-test('внутренние ссылки ведут на существующие страницы и разделы и не уводят на другой язык', async ({ page, request }) => {
-  const links = new Set<string>();
-  const strays: string[] = [];
-  for (const [locale, { home, pages }] of Object.entries(SITES)) {
+for (const [locale, { home, pages }] of Object.entries(SITES)) {
+  test(`[${locale}] внутренние ссылки ведут на существующие страницы и разделы и не уводят на другой язык`, async ({ page, request }) => {
+    const links = new Set<string>();
+    const strays: string[] = [];
     for (const path of [home, ...pages.map(([, p]) => p)]) {
       await page.goto(path);
       await expect(page.locator('a[href="#"]'), path).toHaveCount(0);
@@ -128,15 +144,15 @@ test('внутренние ссылки ведут на существующие
         if ((prefixed ?? 'ru') !== locale) strays.push(`${path} → ${href}`);
       }
     }
-  }
 
-  expect(strays).toEqual([]);
-  for (const link of links) {
-    const [path, section] = link.split('#');
-    expect((await request.get(path)).status(), link).toBe(200);
-    if (section) {
-      await page.goto(path);
-      await expect(page.locator(`#${section}`), link).toHaveCount(1);
+    expect(strays).toEqual([]);
+    for (const link of links) {
+      const [path, section] = link.split('#');
+      expect((await request.get(path)).status(), link).toBe(200);
+      if (section) {
+        await page.goto(path);
+        await expect(page.locator(`#${section}`), link).toHaveCount(1);
+      }
     }
-  }
-});
+  });
+}

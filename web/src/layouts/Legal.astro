@@ -1,19 +1,24 @@
 ---
+import { contentIn } from '../i18n/content';
+import { localeOfUrl } from '../i18n/locales';
+import { legalDate } from '../site.config';
 import Base from './Base.astro';
 
 interface Props {
   title: string;
   description: string;
+  /** The date of this revision, YYYY-MM-DD. */
   revised: string;
 }
 
 const { title, description, revised } = Astro.props;
+const locale = localeOfUrl(Astro.url);
 ---
 <Base title={`${title} — ritis.dev`} description={description}>
   <section class="block">
     <div class="wrap legal">
       <h1>{title}</h1>
-      <p class="revised">Редакция от {revised}</p>
+      <p class="revised">{contentIn(locale).legal.revised} {legalDate(locale, revised)}</p>
       <slot />
     </div>
   </section>

@@ -1,9 +1,11 @@
+---
+import { pageContent } from '../i18n/content';
+
+const facts = pageContent(Astro.url).facts;
+---
 <div class="wrap">
   <div class="facts">
-    <div class="fact"><b>2&nbsp;500+</b><span>студенческих работ проверил как код-ревьюер</span></div>
-    <div class="fact"><b>≈&nbsp;1&nbsp;000</b><span>выпускников прошли путь от нуля до джуна под моим наставничеством</span></div>
-    <div class="fact"><b>7+</b><span>лет в разработке, на ведущих позициях</span></div>
-    <div class="fact"><b>4+</b><span>года ментор и ревьюер в Яндекс Практикуме</span></div>
+    {facts.map((fact) => <div class="fact"><b set:html={fact.valueHtml}></b><span>{fact.text}</span></div>)}
   </div>
 </div>
 

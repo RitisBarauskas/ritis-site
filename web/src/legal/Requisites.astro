@@ -1,0 +1,16 @@
+---
+import { pageContent } from '../i18n/content';
+import { links, merchant } from '../site.config';
+
+const t = pageContent(Astro.url).legal;
+---
+<dl class="requisites">
+  <dt>{t.requisites.seller}</dt>
+  <dd>{t.merchantName} ({merchant.nameLatin})</dd>
+  <dt>{t.requisites.registryId}</dt>
+  <dd>{merchant.registryId}, {t.registry}</dd>
+  <dt>{t.requisites.country}</dt>
+  <dd>{t.country}</dd>
+  <dt>{t.requisites.email}</dt>
+  <dd><a href={`mailto:${links.email}`}>{links.email}</a></dd>
+</dl>

@@ -56,16 +56,6 @@ export class BookingApiError extends Error {
   }
 }
 
-export const failureMessages: Record<Failure, string> = {
-  invalid: 'Проверьте анкету: какое-то поле заполнено не так.',
-  not_found: 'Бронь не найдена. Проверьте ссылку или оформите бронь заново.',
-  conflict: 'Бронь как раз обновляется. Попробуйте ещё раз через пару секунд.',
-  provider_down: 'Платёжный сервис сейчас не отвечает. Попробуйте через пару минут.',
-  timeout: 'Сервер долго не отвечает. Попробуйте ещё раз.',
-  network: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
-  server: 'Что-то пошло не так на нашей стороне. Попробуйте ещё раз чуть позже.',
-};
-
 export class BookingApi {
   constructor(private readonly base = '/api/bookings') {}
 

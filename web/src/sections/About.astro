@@ -1,30 +1,27 @@
 ---
 import { Picture } from 'astro:assets';
 import about from '../assets/img/about.jpg';
+import { pageContent } from '../i18n/content';
 import { links } from '../site.config';
 
 // The landscape photo is cropped into a 4:5 frame by object-fit:cover, so the rendered image
 // is ~2.2× wider than the frame. The source is 1216px wide, which caps what we can serve.
 const aboutSizes = '(max-width: 640px) calc((100vw - 36px) * 2.2), 930px';
+const t = pageContent(Astro.url).about;
 ---
 <section class="block" id="about">
   <div class="wrap about">
-    <div class="frame"><Picture src={about} alt="Ритис Бараускас" formats={['avif', 'webp']} widths={[700, 1216]} sizes={aboutSizes} /></div>
+    <div class="frame"><Picture src={about} alt={t.photoAlt} formats={['avif', 'webp']} widths={[700, 1216]} sizes={aboutSizes} /></div>
     <div class="about-text">
-      <p class="label"><b>07</b>Обо мне</p>
-      <h2>Привет, я Ритис</h2>
-      <p>Больше семи лет в разработке — на ведущих позициях в российских и международных компаниях.</p>
-      <p>С 2022 года ментор и ревьюер в Яндекс Практикуме: больше 2&nbsp;500 проверенных студенческих работ и почти тысяча выпускников, которые под моим наставничеством прошли путь от нуля до джуна. Я тысячи раз видел, где ломается код у тех, кто только начинает, — и знаю, какие ограничения это предотвращают.</p>
-      <p>Каждый день работаю с ИИ-агентами. Знаю, на что способна каждая модель, сколько она стоит и где без инженера пока нельзя.</p>
+      <p class="label"><b>07</b>{t.label}</p>
+      <h2>{t.title}</h2>
+      {t.parasHtml.map((para) => <p set:html={para}></p>)}
       <div class="principles">
-        <div class="pr"><h4>Качество с начала</h4><p>Не «сначала запилим, потом отрефакторим». Плохой план переделываю до старта.</p></div>
-        <div class="pr"><h4>Говорю как есть</h4><p>Если идея или код плохие, скажу прямо — и объясню почему.</p></div>
-        <div class="pr"><h4>Проще, а не сложнее</h4><p>Хорошее решение обычно убирает лишнее, а не добавляет ещё один слой.</p></div>
-        <div class="pr"><h4>Без магии</h4><p>Всё сделанное лежит в вашем репозитории с README: продолжать можно и без меня.</p></div>
+        {t.principles.map((principle) => <div class="pr"><h4>{principle.title}</h4><p>{principle.text}</p></div>)}
       </div>
       <blockquote>
-        «ИИ ответит на любой вопрос. Вся работа — знать, какой вопрос задать.»
-        <small>правило, по которому я работаю с любым кодом и любой моделью</small>
+        {t.quote}
+        <small>{t.quoteNote}</small>
       </blockquote>
       <div class="socials">
         <a class="btn btn-ghost btn-sm" href={links.github} target="_blank" rel="noopener">GitHub</a>

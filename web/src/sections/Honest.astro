@@ -1,31 +1,29 @@
+---
+import { pageContent } from '../i18n/content';
+
+const t = pageContent(Astro.url).honest;
+---
 <section class="block" id="honest">
   <div class="wrap">
-    <p class="label"><b>05</b>Честно</p>
-    <h2>Делать продукты умею. Продавать&nbsp;— <mark>нет</mark></h2>
-    <p class="sub">Я умею делать продукты от идеи до запуска — такие, что работают и не создают проблем. А продавать их не умею. Поэтому вы о моих личных проектах и не слышали.</p>
-    <p class="sub">Хотя… если вы тут оказались, возможно, не всё так грустно.</p>
-    <div class="cta-row"><a href="#book" class="btn btn-primary" data-book="start">Хочу начать!</a></div>
+    <p class="label"><b>05</b>{t.label}</p>
+    <h2 set:html={t.titleHtml}></h2>
+    {t.subs.map((sub) => <p class="sub">{sub}</p>)}
+    <div class="cta-row"><a href="#book" class="btn btn-primary" data-book="start">{t.cta}</a></div>
     <div class="fit">
       <div class="col yes">
-        <h3>С чем помогу</h3>
+        <h3>{t.yesTitle}</h3>
         <ul>
-          <li>продукт, который держит живых пользователей, деньги и данные</li>
-          <li>архитектура, которую не придётся переписывать через полгода</li>
-          <li>ИИ, который делает то, что нужно, а не то, что вы случайно попросили</li>
-          <li>проект в репозитории, который можно отдать любому подрядчику — и проверить его работу</li>
+          {t.yes.map((item) => <li>{item}</li>)}
         </ul>
       </div>
       <div class="col no">
-        <h3>Не по адресу, если вам нужно</h3>
+        <h3>{t.noTitle}</h3>
         <ul>
-          <li>понять, что и как продавать</li>
-          <li>первый миллион или первых клиентов</li>
-          <li>раскрутка, маркетинг, воронки</li>
-          <li>чтобы кто-то сказал, что всё отлично</li>
+          {t.no.map((item) => <li>{item}</li>)}
         </ul>
       </div>
     </div>
-    <p class="note">Раскрутка и продажи — не моя компетенция. Зато когда вы найдёте того, кто умеет продавать, продукт не развалится у него в руках.</p>
+    <p class="note">{t.note}</p>
   </div>
 </section>
 

@@ -5,8 +5,8 @@
   --red:#C8402F; --orange:#D9772B; --yellow:#B8952A; --green:#2FA36B;
   --code-bg:#17161A; --code-ink:#ECE8E1; --code-muted:#8C877E;
   --radius:16px; --maxw:1160px;
-  --mono:"JetBrains Mono Variable",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --sans:"Manrope Variable",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono Variable","Noto Sans Georgian Variable",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Manrope Variable","Noto Sans Georgian Variable",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   color-scheme:light;
 }
 html[data-theme="dark"]{

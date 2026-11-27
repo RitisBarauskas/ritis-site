@@ -1,0 +1,8 @@
+---
+import { localeOfUrl, localePaths } from '../../i18n/locales';
+import { LEGAL } from '../../legal';
+
+export const getStaticPaths = localePaths;
+const { Privacy } = LEGAL[localeOfUrl(Astro.url)];
+---
+<Privacy />

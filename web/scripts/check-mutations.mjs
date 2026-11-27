@@ -50,6 +50,9 @@ const M = (...args) => new Mutation(...args);
 const DIALOG = 'src/components/BookingDialog.astro';
 const API = 'src/scripts/booking-api.ts';
 const PAGE = 'src/scripts/booking-page.ts';
+const RU = 'src/i18n/ru.ts';
+const CLIENT_TEXT = 'src/i18n/client.ts';
+const RU_OFFER = 'src/legal/ru/Offer.astro';
 
 const MUTATIONS = [
   // The booking dialog.
@@ -58,21 +61,21 @@ const MUTATIONS = [
   M(DIALOG, 'if (box) box.required = !isFree();', 'if (box) box.required = false;', 'без согласия с офертой'),
   M(DIALOG, 'start_immediately: startNow.checked,', 'start_immediately: false,', 'анкета уходит в API и ведёт на страницу оплаты'),
   M(DIALOG, 'tabindex="-1" autocomplete="off"', 'autocomplete="off"', 'ловушка для ботов'),
-  M(DIALOG, 'booking.checkout_url ?? `/booking/?id=', 'booking.checkout_url ?? `/?id=', 'повтор уже оплаченной анкеты'),
+  M(DIALOG, "booking.checkout_url ?? `${localized(locale, '/booking/')}?id=", "booking.checkout_url ?? `${localized(locale, '/')}?id=", 'повтор уже оплаченной анкеты'),
   M(DIALOG, 'if (!event.persisted) return;', 'return;', 'возврат со страницы оплаты кнопкой «Назад» окно брони'),
   M(DIALOG, "dlg.addEventListener('close', () => pending?.abort());", "dlg.addEventListener('close', () => {});", 'пока ждём API, анкету не поправить'),
   M(DIALOG, 'if (cancel.signal.aborted) return;', 'if (false) return;', 'пока ждём API, анкету не поправить'),
   M(DIALOG, 'fields.disabled = true;', 'fields.disabled = false;', 'пока ждём API, анкету не поправить'),
   M(DIALOG, String.raw`required maxlength="100" pattern=".*\S.*"`, 'required maxlength="100"', 'имя из одних пробелов'),
-  M(DIALOG, 'const price = bookingPrice[chosen];', 'const price = bookingPrice.start;', 'формат launch: к оплате'),
-  M(DIALOG, "Сумма засчитается в «Фундамент», если вы его закажете.'", "'", 'формат foundation: к оплате'),
-  M(DIALOG, '<a href="/offer/" target="_blank">оферту</a>', '<a href="#" target="_blank">оферту</a>', 'согласие в окне брони ведёт на оферту'),
+  M(DIALOG, 'const price = prices[chosen];', 'const price = prices.start;', 'формат launch: к оплате'),
+  M(CLIENT_TEXT, "Сумма засчитается в «Фундамент», если вы его закажете.'", "'", 'формат foundation: к оплате'),
+  M(RU, '<a href="${offer}" target="_blank">оферту</a>', '<a href="#" target="_blank">оферту</a>', 'согласие в окне брони ведёт на оферту'),
   // The legal pages.
-  M('src/components/Footer.astro', '<a href="/refund/">Возврат</a>', '<a href="#">Возврат</a>', 'юридические страницы ссылка «Возврат» в подвале'),
-  M('src/pages/offer.astro', '<RefundTerms />', '<ol class="refund"><li>Иначе.</li></ol>', 'условия возврата в оферте и на своей странице'),
-  M('src/pages/offer.astro', '<dt>Технический старт — {prices.start}</dt>', '<dt>Технический старт — {prices.launch}</dt>', 'в оферте у каждого формата своя цена'),
-  M('src/pages/offer.astro', '<a href="/refund/">условия возврата</a>', '<a href="/refnd/">условия возврата</a>', 'внутренние ссылки ведут на существующие страницы'),
-  M('src/pages/offer.astro', '<h2 id="refund">', '<h2>', 'внутренние ссылки ведут на существующие страницы'),
+  M('src/components/Footer.astro', "<a href={localized(locale, '/refund/')}>{t.refund}</a>", '<a href="#">{t.refund}</a>', 'юридические страницы ссылка «Возврат» в подвале'),
+  M(RU_OFFER, '<RefundTerms />', '<ol class="refund"><li>Иначе.</li></ol>', 'условия возврата в оферте и на своей странице'),
+  M(RU_OFFER, '<dt>Технический старт — {prices.start}</dt>', '<dt>Технический старт — {prices.launch}</dt>', 'в оферте у каждого формата своя цена'),
+  M(RU_OFFER, '<a href="/refund/">условия возврата</a>', '<a href="/refnd/">условия возврата</a>', 'внутренние ссылки ведут на существующие страницы'),
+  M(RU_OFFER, '<h2 id="refund">', '<h2>', 'внутренние ссылки ведут на существующие страницы'),
   // What each failure of the API turns into.
   M(API, "if (status === 422 && Array.isArray(detail)) return 'invalid';", "if (false) return 'invalid';", 'API не принял анкету'),
   M(API, "['payment_provider_unavailable', 'provider_down'],", '', 'сбой платёжного сервиса'),
@@ -84,7 +87,7 @@ const MUTATIONS = [
   M(PAGE, 'if (!id || !BOOKING_ID.test(id)) {', 'if (!id) {', 'ссылка без брони не ходит в API'),
   M(PAGE, 'attempt <= this.poll.attempts', 'attempt < this.poll.attempts', 'опрос не бесконечный'),
   M(PAGE, "booking.status === 'awaiting_payment' && !booking.can_retry_payment;", "booking.status === 'awaiting_payment';", 'оплату не удалось открыть: страница не ждёт впустую'),
-  M(PAGE, 'this.show(STILL_WAITING, { resume: waiting.checkout_url });', 'this.show(STILL_WAITING);', 'опрос не бесконечный'),
+  M(PAGE, 'this.show(this.text.stillWaiting, { resume: waiting.checkout_url });', 'this.show(this.text.stillWaiting);', 'опрос не бесконечный'),
   M(PAGE, "if (failure === 'not_found') return;", 'return;', 'временный сбой связи не останавливает опрос'),
   M(PAGE, "if (failure === 'not_found') return;", 'if (false) return;', 'бронь, которой нет у API: больше не спрашивает'),
   M(PAGE, 'retry: booking.can_retry_payment,', 'retry: true,', 'оплачено'),
@@ -92,11 +95,11 @@ const MUTATIONS = [
   M(PAGE, 'this.view.retry.hidden = !actions.retry;', 'this.view.retry.hidden = true;', 'Оплата не прошла: «Оплатить снова»'),
   M(PAGE, "if (failure === 'conflict') return this.watch(id);", 'if (false) return this.watch(id);', '«Оплатить снова», а бронь тем временем оплачена'),
   M(PAGE, "{ retry: failure !== 'not_found' });", '{});', '«Оплатить снова», а платёжный сервис не отвечает'),
-  M('src/pages/booking/index.astro', 'if (event.persisted) window.location.reload();', 'if (false) window.location.reload();', 'возврат со страницы оплаты кнопкой «Назад» страница брони'),
+  M('src/pages/[...locale]/booking/index.astro', 'if (event.persisted) window.location.reload();', 'if (false) window.location.reload();', 'возврат со страницы оплаты кнопкой «Назад» страница брони'),
   // Shared pieces the booking flow relies on.
   M('src/styles/base.css', '[hidden]{display:none!important}', '', 'оплата на проверке'),
   M('src/sections/Offers.astro', '<span>Visa</span><span>Mastercard</span><em>', '<span>Visa</span><span>Mastercard</span><span>Мир</span><em>', 'обещает только те способы оплаты'),
-  M('src/components/Header.astro', '<a href="/#help">', '<a href="#help">', 'шапка ведёт на разделы главной'),
+  M('src/components/Header.astro', '<a href={`${home}#help`}>', '<a href="#help">', 'шапка ведёт на разделы главной'),
   // Proves the broken-script path: this one must not count as caught.
   M(DIALOG, "byId('book-fields', HTMLFieldSetElement)", "byId('no-such-id', HTMLFieldSetElement)", 'анкета уходит в API', 'BROKEN (script)'),
 ];

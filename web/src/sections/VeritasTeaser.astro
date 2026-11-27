@@ -1,28 +1,34 @@
+---
+import { pageContent } from '../i18n/content';
+
+const t = pageContent(Astro.url).veritas;
+---
 <section class="block">
   <div class="wrap">
     <div class="teaser">
       <div>
-        <span class="soon">скоро</span>
-        <h3><span class="mono">veritas.ritis.dev</span> — мои вопросы на автопилоте</h3>
-        <p class="sub">Вставьте ссылку на публичный репозиторий. ИИ пройдёт по нему с моими вопросами и ограничениями и выдаст отчёт: что сломается, где дыры и что чинить первым.</p>
+        <span class="soon">{t.soon}</span>
+        <h3><span class="mono">veritas.ritis.dev</span>{t.title}</h3>
+        <p class="sub">{t.sub}</p>
       </div>
       <form class="waitlist" id="waitlist">
-        <input type="url" required placeholder="https://github.com/вы/ваш-репозиторий" aria-label="Ссылка на репозиторий">
-        <input type="email" required placeholder="Почта — напишу, когда запустимся" aria-label="Почта">
-        <button class="btn btn-dark" type="submit">В лист ожидания</button>
+        <input type="url" required placeholder={t.repoPlaceholder} aria-label={t.repoLabel}>
+        <input type="email" required placeholder={t.emailPlaceholder} aria-label={t.emailLabel}>
+        <button class="btn btn-dark" type="submit">{t.submit}</button>
       </form>
     </div>
   </div>
 </section>
 
 <script>
+  import { clientText } from '../i18n/client';
   import { byId } from '../scripts/dom';
   import { toast } from '../scripts/toast';
 
   byId('waitlist', HTMLFormElement).addEventListener('submit', (event) => {
     event.preventDefault();
     (event.currentTarget as HTMLFormElement).reset();
-    toast('Демо: адрес попал бы в лист ожидания.');
+    toast(clientText().waitlistToast);
   });
 </script>
 

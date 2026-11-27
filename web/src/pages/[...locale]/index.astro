@@ -1,0 +1,36 @@
+---
+import Base from '../../layouts/Base.astro';
+import Hero from '../../sections/Hero.astro';
+import Facts from '../../sections/Facts.astro';
+import WhyMe from '../../sections/WhyMe.astro';
+import AskDemo from '../../sections/AskDemo.astro';
+import Models from '../../sections/Models.astro';
+import Offers from '../../sections/Offers.astro';
+import Honest from '../../sections/Honest.astro';
+import Process from '../../sections/Process.astro';
+import About from '../../sections/About.astro';
+import Channel from '../../sections/Channel.astro';
+import VeritasTeaser from '../../sections/VeritasTeaser.astro';
+import Faq from '../../sections/Faq.astro';
+import FinalCta from '../../sections/FinalCta.astro';
+import { pageContent } from '../../i18n/content';
+import { localePaths } from '../../i18n/locales';
+
+export const getStaticPaths = localePaths;
+const { meta } = pageContent(Astro.url);
+---
+<Base title={meta.title} description={meta.description}>
+  <Hero />
+  <Facts />
+  <WhyMe />
+  <AskDemo />
+  <Models />
+  <Offers />
+  <Honest />
+  <Process />
+  <About />
+  <Channel />
+  <VeritasTeaser />
+  <Faq />
+  <FinalCta />
+</Base>

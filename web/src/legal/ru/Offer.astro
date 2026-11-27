@@ -1,8 +1,12 @@
 ---
-import RefundTerms from '../components/legal/RefundTerms.astro';
-import Requisites from '../components/legal/Requisites.astro';
-import Legal from '../layouts/Legal.astro';
-import { links, merchant, offerRevision, prices } from '../site.config';
+import { contentIn } from '../../i18n/content';
+import Legal from '../../layouts/Legal.astro';
+import { links, merchant, offerRevision, pricesIn } from '../../site.config';
+import Requisites from '../Requisites.astro';
+import RefundTerms from './RefundTerms.astro';
+
+const prices = pricesIn('ru');
+const { merchantName } = contentIn('ru').legal;
 ---
 <Legal
   title="Публичная оферта"
@@ -12,7 +16,7 @@ import { links, merchant, offerRevision, prices } from '../site.config';
   <p>Договор на разработку программного обеспечения.</p>
 
   <h2>1. Что это за документ</h2>
-  <p>1.1. Это публичная оферта: предложение {merchant.name} ({merchant.nameLatin}, далее — Исполнитель) заключить договор на разработку программного обеспечения на условиях ниже. Оферта адресована любому дееспособному лицу (далее — Заказчик).</p>
+  <p>1.1. Это публичная оферта: предложение {merchantName} ({merchant.nameLatin}, далее — Исполнитель) заключить договор на разработку программного обеспечения на условиях ниже. Оферта адресована любому дееспособному лицу (далее — Заказчик).</p>
   <p>1.2. Договор заключается в момент оплаты заказа на сайте ritis.dev или по ссылке на оплату, которую прислал Исполнитель. Оплачивая заказ, Заказчик принимает все условия этой оферты, включая <a href="/refund/">условия возврата</a>, подтверждает, что ознакомился с <a href="/privacy/">политикой конфиденциальности</a>, и просит начать работу сразу после оплаты.</p>
   <p>1.3. К заказу применяется редакция оферты, которую Заказчик принял при оформлении брони, а для пакета и месяца подписки — указанная в предложении Исполнителя (пункт 4.2); её дату Исполнитель сохраняет в данных заказа. Новая редакция действует для заказов, оплаченных после её публикации на сайте. Прежние редакции Исполнитель присылает по запросу.</p>
 

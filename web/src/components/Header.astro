@@ -1,21 +1,35 @@
+---
+import { contentIn } from '../i18n/content';
+import { LANGUAGE_CODES, LANGUAGE_NAMES, LOCALES, localeOfUrl, localized, withoutLocale } from '../i18n/locales';
+
+const locale = localeOfUrl(Astro.url);
+const t = contentIn(locale).nav;
+const home = localized(locale, '/');
+const path = withoutLocale(Astro.url.pathname);
+---
 <header class="nav">
   <div class="wrap nav-in">
-    <a class="logo" href="/#top" aria-label="ritis.dev">ritis<span class="dot">.</span><small>do it right</small></a>
-    <nav class="nav-links" aria-label="Разделы">
-      <a href="/#ask">Как я работаю с ИИ</a>
-      <a href="/#models">Модели</a>
-      <a href="/#help">Чем помогаю</a>
-      <a href="/#about">Обо мне</a>
+    <a class="logo" href={`${home}#top`} aria-label="ritis.dev">ritis<span class="dot">.</span><small>do it right</small></a>
+    <nav class="nav-links" aria-label={t.label}>
+      <a href={`${home}#ask`}>{t.ask}</a>
+      <a href={`${home}#models`}>{t.models}</a>
+      <a href={`${home}#help`}>{t.help}</a>
+      <a href={`${home}#about`}>{t.about}</a>
     </nav>
     <div class="nav-tools">
-      <button type="button" class="icon-btn" id="theme" aria-label="Сменить тему">◐</button>
-      <a href="#book" class="btn btn-primary btn-sm" data-book="start">Ритис, начнём проект</a>
+      <nav class="langs" aria-label={t.languages}>
+        {LOCALES.map((l) => (
+          <a href={localized(l, path)} hreflang={l} lang={l} title={LANGUAGE_NAMES[l]} aria-label={LANGUAGE_NAMES[l]} aria-current={l === locale ? 'page' : undefined} data-lang-switch>{LANGUAGE_CODES[l]}</a>
+        ))}
+      </nav>
+      <button type="button" class="icon-btn" id="theme" aria-label={t.theme}>◐</button>
+      <a href="#book" class="btn btn-primary btn-sm" data-book="start">{t.cta}</a>
     </div>
   </div>
 </header>
 
 <script>
-  import { byId } from '../scripts/dom';
+  import { all, byId } from '../scripts/dom';
 
   const root = document.documentElement;
   byId('theme', HTMLButtonElement).addEventListener('click', () => {
@@ -27,6 +41,13 @@
       // Storage can be blocked (private mode): the theme still switches for this visit.
     }
   });
+
+  // The same page in another language keeps its query and section: a booking page keeps its id.
+  for (const link of all<HTMLAnchorElement>('[data-lang-switch]')) {
+    link.addEventListener('click', () => {
+      link.href = link.pathname + window.location.search + window.location.hash;
+    });
+  }
 </script>
 
 <style>
@@ -39,9 +60,14 @@
 .nav-links a{text-decoration:none;font-size:15px;color:var(--muted);font-weight:600;transition:color .15s}
 .nav-links a:hover{color:var(--ink)}
 .nav-tools{display:flex;align-items:center;gap:10px}
+.langs{display:flex;gap:2px;font:600 12px/1 var(--mono)}
+.langs a{padding:7px 6px;border-radius:7px;text-decoration:none;color:var(--muted)}
+.langs a:hover{color:var(--ink)}
+.langs a[aria-current="page"]{color:var(--ink);background:var(--accent-soft)}
 
 @media (max-width:1000px){
   .nav-links{display:none}
+  .nav-tools{margin-inline-start:auto}
 }
 @media (max-width:640px){
   .nav-tools .btn{display:none}

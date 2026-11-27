@@ -1,30 +1,30 @@
 ---
 import { Picture } from 'astro:assets';
 import channel from '../assets/img/channel.jpg';
+import { pageContent } from '../i18n/content';
 import { links } from '../site.config';
+
+const t = pageContent(Astro.url).channel;
 ---
 <section class="block">
   <div class="wrap">
     <div class="band">
       <div>
-        <p class="label"><b>08</b>Ritis Do It</p>
-        <h2>Показываю, как делаю сам</h2>
-        <p class="sub">На YouTube и в Telegram честно показываю, как строить продукты с ИИ: какие вопросы я задаю моделям и что они находят, проекты от и до, разборы репозиториев зрителей, ошибки и их исправления. Первая серия — торговый бот: как написать его правильно, поставить ограничения и не потерять деньги на баге.</p>
+        <p class="label"><b>08</b>{t.label}</p>
+        <h2>{t.title}</h2>
+        <p class="sub">{t.sub}</p>
         <div class="series">
-          <span>вопросы к ИИ</span>
-          <span>разборы репозиториев</span>
-          <span>проекты от и до</span>
-          <span>торговый бот</span>
+          {t.series.map((name) => <span>{name}</span>)}
         </div>
         <div class="cta-row">
           <a class="btn btn-primary" href={links.youtube} target="_blank" rel="noopener">YouTube</a>
           <a class="btn btn-ghost" href={links.telegram} target="_blank" rel="noopener">Telegram @ritisdoit</a>
-          <a class="btn btn-ghost" href="#book" data-book="teardown">Прислать репозиторий на разбор в ролике</a>
+          <a class="btn btn-ghost" href="#book" data-book="teardown">{t.teardown}</a>
         </div>
       </div>
       <figure class="polaroid">
         <Picture src={channel} alt="" formats={['avif', 'webp']} widths={[280, 560]} sizes="276px" />
-        <figcaption>Когда нашёл пароли прямо в репозитории</figcaption>
+        <figcaption>{t.caption}</figcaption>
       </figure>
     </div>
   </div>

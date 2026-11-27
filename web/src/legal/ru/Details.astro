@@ -1,9 +1,9 @@
 ---
-import Requisites from '../components/legal/Requisites.astro';
-import Legal from '../layouts/Legal.astro';
-import { links } from '../site.config';
+import Legal from '../../layouts/Legal.astro';
+import { links } from '../../site.config';
+import Requisites from '../Requisites.astro';
 ---
-<Legal title="Реквизиты и контакты" description="Кто продаёт услуги на ritis.dev и как с ним связаться." revised="27 ноября 2026 года">
+<Legal title="Реквизиты и контакты" description="Кто продаёт услуги на ritis.dev и как с ним связаться." revised="2026-11-27">
   <Requisites />
   <h2>Связь</h2>
   <p>По заказам, оплате и возврату — <a href={`mailto:${links.email}`}>{links.email}</a>. Отвечаю в течение рабочего дня.</p>

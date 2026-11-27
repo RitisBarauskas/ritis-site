@@ -1,65 +1,39 @@
 ---
-import { prices } from '../site.config';
+import { contentIn } from '../i18n/content';
+import { localeOfUrl } from '../i18n/locales';
+import { pricesIn, type PaidFormat } from '../site.config';
+
+const locale = localeOfUrl(Astro.url);
+const t = contentIn(locale).offers;
+const prices = pricesIn(locale);
+// The technical start leads: every package opens with it.
+const ORDER: PaidFormat[] = ['start', 'foundation', 'launch', 'subscription'];
 ---
 <section class="block" id="help">
   <div class="wrap">
-    <p class="label"><b>04</b>Чем помогаю</p>
-    <h2>Четыре формата работы</h2>
-    <p class="sub">Вы платите за результат, а не за моё время: каждый формат заканчивается кодом в вашем репозитории.</p>
+    <p class="label"><b>04</b>{t.label}</p>
+    <h2>{t.title}</h2>
+    <p class="sub">{t.sub}</p>
     <div class="offers">
-      <article class="offer featured">
-        <span class="tag acc">начать здесь</span>
-        <h3>Технический старт</h3>
-        <div class="price"><b>{prices.start}</b><span>созвон и 5 рабочих дней</span></div>
-        <p class="desc">Созваниваемся, разбираемся в задаче и целях. Потом я собираю репозиторий, с которого её можно строить — самому, с ИИ-агентами или с подрядчиком.</p>
-        <ul>
-          <li>Созвон в Google Meet — изучаю ваши материалы заранее</li>
-          <li>Каркас проекта под вашу задачу</li>
-          <li>Правила и ограничения для ИИ-агентов, проверки в CI</li>
-          <li>README: как продолжать дальше</li>
-        </ul>
-        <a href="#book" class="btn btn-primary" data-book="start">Начать</a>
-      </article>
-      <article class="offer">
-        <span class="tag">главное</span>
-        <h3>Фундамент: от идеи до репозитория</h3>
-        <div class="price"><b>{prices.foundation}</b><span>2–3 недели</span></div>
-        <p class="desc">Собираю проект так, чтобы дальше его можно было строить самому с ИИ-агентами или отдать любому подрядчику — и проверить его работу.</p>
-        <ul>
-          <li>Требования и пользовательские сценарии — в репозитории, рядом с кодом</li>
-          <li>Архитектура и стек — в коде: рабочий каркас, а не схема</li>
-          <li>Модели и инструменты подключены там, где нужны, расчёт стоимости в месяц — в README</li>
-          <li>Правила, ограничения и требования к коду для ИИ-агентов, проверки в CI и первые тесты</li>
-          <li>Этапы и сроки — задачами в репозитории</li>
-        </ul>
-        <a href="#book" class="btn btn-ghost" data-book="foundation">Начать с технического старта</a>
-      </article>
-      <article class="offer">
-        <h3>Подготовка к запуску</h3>
-        <div class="price"><b>{prices.launch}</b><span>до 7 рабочих дней</span></div>
-        <p class="desc">Прототип уже работает? Довожу его до живых пользователей и настоящих денег. ИИ ищет проблемы по моим вопросам и ограничениям, я исправляю найденное прямо в вашем репозитории.</p>
-        <ul>
-          <li>Секреты и ключи — из кода, доступы — по минимуму</li>
-          <li>Линтер, тесты и проверки безопасности в CI</li>
-          <li><span>Критичное <i class="dot-r"></i> <i class="dot-o"></i> <i class="dot-y"></i> в платежах, данных и на стыках модулей — исправлено пулл-реквестами</span></li>
-          <li>Правила для ИИ-агентов, чтобы ошибки не возвращались</li>
-        </ul>
-        <a href="#book" class="btn btn-ghost" data-book="launch">Выбрать</a>
-      </article>
-      <article class="offer">
-        <h3>Разработка по подписке</h3>
-        <div class="price"><b>{prices.subscription}</b><span>для тех, кто строит сам</span></div>
-        <p class="desc">Вы строите — я пишу код рядом: архитектура, качество, правила для ИИ-агентов. Чтобы через полгода не пришлось всё переписывать.</p>
-        <ul>
-          <li>Каждый месяц — разработка по согласованным задачам: коммиты и пулл-реквесты в ваш репозиторий</li>
-          <li>Правила для ИИ-агентов и проверки в CI растут вместе с проектом</li>
-          <li>Исправляю то, что ломает архитектуру</li>
-        </ul>
-        <a href="#book" class="btn btn-ghost" data-book="subscription">Начать с технического старта</a>
-      </article>
+      {ORDER.map((format) => {
+        const card = t.cards[format];
+        const lead = format === 'start';
+        return (
+          <article class:list={['offer', { featured: lead }]}>
+            {card.tag && <span class:list={['tag', { acc: lead }]}>{card.tag}</span>}
+            <h3>{card.title}</h3>
+            <div class="price"><b>{prices[format]}</b><span>{card.priceNote}</span></div>
+            <p class="desc">{card.desc}</p>
+            <ul>
+              {card.itemsHtml.map((item) => <li set:html={item}></li>)}
+            </ul>
+            <a href="#book" class:list={['btn', lead ? 'btn-primary' : 'btn-ghost']} data-book={format}>{card.cta}</a>
+          </article>
+        );
+      })}
     </div>
-    <p class="note">Пакеты начинаются с технического старта за {prices.start} — его стоимость засчитывается в пакет, если вы его закажете. Состав и сумму пакета могу предложить после технического старта.</p>
-    <div class="paychips" aria-label="Способы оплаты"><span>Visa</span><span>Mastercard</span><em>Оплата в лари картой Visa или Mastercard; если карта в другой валюте, курс определит её банк.</em></div>
+    <p class="note">{t.note(prices)}</p>
+    <div class="paychips" aria-label={t.paymentLabel}><span>Visa</span><span>Mastercard</span><em>{t.paymentNote}</em></div>
   </div>
 </section>
 

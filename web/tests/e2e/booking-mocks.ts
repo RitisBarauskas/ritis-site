@@ -37,6 +37,9 @@ export async function statusSequence(page: Page, answers: Array<(route: Route) =
 export const answer = (status: string, canRetry = false) => (route: Route) =>
   route.fulfill({ json: booking(status, null, canRetry) });
 
+/** A checkout is open and the customer has not finished it yet. */
+export const inFlight = (route: Route) => route.fulfill({ json: booking('awaiting_payment', CHECKOUT) });
+
 export async function openDialog(page: Page, format = 'session'): Promise<void> {
   await page.goto('/');
   await page.locator(`main [data-book="${format}"]`).first().click();

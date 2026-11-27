@@ -27,9 +27,6 @@ export const links = {
 } as const;
 
 export const payments = {
-  // Flitt (Georgia) takes Visa and Mastercard. «Мир» and СБП need a second, Russian provider;
-  // the page names them only once it is connected (tech-plan, stage 3).
-  russianMethods: false,
   // Flitt's test merchant: no real money moves. Switched off with the real merchant account.
   testMode: true,
 } as const;

@@ -14,28 +14,32 @@ import { payments, prices } from '../site.config';
       <div><i></i><span>Google Meet</span></div>
     </div>
     <div class="dlg-body">
-      <label>Что обсуждаем
-        <select name="format" id="format">
-          <option value="session">Час строгого техлида</option>
-          <option value="foundation">Фундамент: от идеи до репозитория</option>
-          <option value="checkup">Проверка перед запуском</option>
-          <option value="support">Техлид на связи</option>
-          <option value="teardown">Бесплатный разбор в ролике</option>
-        </select>
-      </label>
-      <p class="pay" id="pay" aria-live="polite"></p>
-      <label>Как вас зовут<input name="name" required maxlength="100"></label>
-      <label>Почта или Telegram<input name="contact" required minlength="3" maxlength="200"></label>
-      <label>Что хотите решить?<textarea name="about" maxlength="2000" placeholder="Пара предложений о задаче"></textarea></label>
-      <label>Ссылки (репозиторий, макеты, документы)<input name="links" maxlength="1000" placeholder="необязательно"></label>
-      <!-- Hidden from people; bots fill it in, and the API refuses the request. -->
-      <div class="hp" aria-hidden="true"><label>Сайт<input name="website" tabindex="-1" autocomplete="off"></label></div>
-      <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="#">офертой</a> и <a href="#">политикой конфиденциальности</a></label>
-      <p class="dlg-error" id="book-error" role="alert" hidden></p>
-      <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} →</button>
+      <!-- Disabled as a whole while a request is in flight. -->
+      <fieldset class="dlg-fields" id="book-fields">
+        <label>Что обсуждаем
+          <select name="format" id="format">
+            <option value="session">Час строгого техлида</option>
+            <option value="foundation">Фундамент: от идеи до репозитория</option>
+            <option value="checkup">Проверка перед запуском</option>
+            <option value="support">Техлид на связи</option>
+            <option value="teardown">Бесплатный разбор в ролике</option>
+          </select>
+        </label>
+        <p class="pay" id="pay" aria-live="polite"></p>
+        <!-- The API trims spaces: a name needs a letter, a contact three characters besides them. -->
+        <label>Как вас зовут<input name="name" required maxlength="100" pattern=".*\S.*"></label>
+        <label>Почта или Telegram<input name="contact" required maxlength="200" pattern="\s*\S.+\S\s*"></label>
+        <label>Что хотите решить?<textarea name="about" maxlength="2000" placeholder="Пара предложений о задаче"></textarea></label>
+        <label>Ссылки (репозиторий, макеты, документы)<input name="links" maxlength="1000" placeholder="необязательно"></label>
+        <!-- Hidden from people; bots fill it in, and the API refuses the request. Named so that
+             autofill leaves it alone. -->
+        <div class="hp" aria-hidden="true"><label>Не заполняйте<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
+        <label class="consent" id="consent-row"><input type="checkbox" name="consent" id="consent" required> Согласен с <a href="#">офертой</a> и <a href="#">политикой конфиденциальности</a></label>
+        <p class="dlg-error" id="book-error" role="alert" hidden></p>
+        <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} →</button>
+      </fieldset>
       <p class="dlg-note">
-        {payments.russianMethods ? 'Картой Visa, Mastercard или «Мир», из России — через СБП.' : 'Оплата в евро картой Visa или Mastercard.'}
-        После оплаты я свяжусь с вами, чтобы выбрать время, и пришлю ссылку на Google Meet.
+        Оплата в евро картой Visa или Mastercard. После оплаты я свяжусь с вами, чтобы выбрать время, и пришлю ссылку на Google Meet.
       </p>
       {payments.testMode && <p class="dlg-test">Тестовый режим: деньги не списываются, для оплаты подойдёт только тестовая карта.</p>}
     </div>
@@ -52,6 +56,7 @@ import { payments, prices } from '../site.config';
   const form = byId('book-form', HTMLFormElement);
   const format = byId('format', HTMLSelectElement);
   const pay = byId('pay', HTMLParagraphElement);
+  const fields = byId('book-fields', HTMLFieldSetElement);
   const submit = byId('book-submit', HTMLButtonElement);
   const consentRow = byId('consent-row', HTMLLabelElement);
   const consent = byId('consent', HTMLInputElement);
@@ -106,7 +111,7 @@ import { payments, prices } from '../site.config';
       about: text('about'),
       links: text('links'),
       consent: consent.checked,
-      website: String(data.get('website') ?? ''),
+      website: String(data.get('leave_empty') ?? ''),
     };
   }
 
@@ -115,28 +120,40 @@ import { payments, prices } from '../site.config';
     errorText.hidden = false;
   }
 
+  let pending: AbortController | null = null;
+
+  function settle(): void {
+    pending = null;
+    fields.disabled = false;
+    renderPay();
+  }
+
   async function startPayment(): Promise<void> {
     const request = requestFrom(new FormData(form));
-    submit.disabled = true;
+    const cancel = new AbortController();
+    pending = cancel;
+    fields.disabled = true;
     submit.textContent = 'Открываем оплату…';
     errorText.hidden = true;
     try {
-      const booking = await api.create(request, keys.for(request));
+      const booking = await api.create(request, keys.for(request), cancel.signal);
       // No open checkout: this request is past paying (repeated after paying, say),
       // and the booking page tells where it stands.
       window.location.assign(booking.checkout_url ?? `/booking/?id=${encodeURIComponent(booking.id)}`);
     } catch (error) {
+      settle();
+      // Cancelled by closing the dialog: the person changed their mind, nothing to report.
+      if (cancel.signal.aborted) return;
       showError(failureMessages[BookingApiError.failureOf(error)]);
-      renderPay();
-      submit.disabled = false;
+      submit.focus();
     }
   }
 
+  dlg.addEventListener('close', () => pending?.abort());
   // Back from the checkout restores this page from the back/forward cache as it was left.
   window.addEventListener('pageshow', (event) => {
     if (!event.persisted) return;
-    renderPay();
-    submit.disabled = false;
+    settle();
   });
 
   format.addEventListener('change', renderPay);
@@ -175,6 +192,7 @@ dialog::backdrop{background:rgba(15,14,12,.55);backdrop-filter:blur(3px)}
 .stepper .on i{background:var(--accent)}
 .stepper span{font:500 11px/1 var(--mono);color:var(--muted)}
 .dlg-body{padding:22px 28px 28px;display:grid;gap:14px}
+.dlg-fields{border:0;margin:0;padding:0;min-width:0;display:grid;gap:14px}
 label{font-size:13px;font-weight:700;color:var(--muted);display:grid;gap:7px}
 label.consent{display:flex;gap:10px;align-items:flex-start;font-weight:500;line-height:1.45}
 label.consent input{width:auto;margin-top:2px;flex:none}

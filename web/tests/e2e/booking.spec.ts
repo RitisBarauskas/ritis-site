@@ -1,5 +1,16 @@
-import { expect, test, type Request, type Route } from '@playwright/test';
-import { answer, booking, CHECKOUT, fakeCheckout, fillForm, ID, openDialog, statusSequence } from './booking-mocks';
+import type { Request, Route } from '@playwright/test';
+import {
+  answer,
+  booking,
+  CHECKOUT,
+  fakeCheckout,
+  fillForm,
+  ID,
+  inFlight,
+  openDialog,
+  statusSequence,
+} from './booking-mocks';
+import { expect, test } from './fixtures';
 
 test.describe('оплата из окна брони', () => {
   test('анкета уходит в API и ведёт на страницу оплаты', async ({ page }) => {
@@ -15,7 +26,7 @@ test.describe('оплата из окна брони', () => {
 
     await page.locator('#book-submit').click();
 
-    await page.waitForURL(CHECKOUT);
+    await expect(page).toHaveURL(CHECKOUT);
     expect(requests).toHaveLength(1);
     expect(requests[0].method()).toBe('POST');
     expect(requests[0].headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
@@ -41,15 +52,66 @@ test.describe('оплата из окна брони', () => {
 
     await page.locator('#book-submit').click();
 
+    // The browser stops the submission on the unticked box, before any request.
+    await expect(page.locator('#consent:invalid')).toHaveCount(1);
     await expect(page.locator('#book')).toHaveAttribute('open');
     expect(sent).toBe(0);
   });
 
-  test('ловушка для ботов людям не видна и не берёт фокус', async ({ page }) => {
+  test('ловушка для ботов людям не видна и клавиатурой до неё не дойти', async ({ page }) => {
     await openDialog(page);
-    const honeypot = page.locator('input[name="website"]');
-    await expect(honeypot).not.toBeInViewport();
-    await expect(honeypot).toHaveAttribute('tabindex', '-1');
+    await expect(page.locator('input[name="leave_empty"]')).not.toBeInViewport();
+    await page.locator('#format').focus();
+
+    const reached: string[] = [];
+    for (let step = 0; step < 12; step++) {
+      await page.keyboard.press('Tab');
+      reached.push(await page.evaluate(() => document.activeElement?.getAttribute('name') ?? ''));
+    }
+
+    expect(reached).toContain('links');
+    expect(reached).not.toContain('leave_empty');
+  });
+
+  test('имя из одних пробелов браузер не пропускает', async ({ page }) => {
+    let sent = 0;
+    await page.route('**/api/bookings', (route) => {
+      sent += 1;
+      return route.abort();
+    });
+    await openDialog(page);
+    await fillForm(page);
+    await page.getByLabel('Как вас зовут').fill('   ');
+    await page.locator('#consent').check();
+
+    await page.locator('#book-submit').click();
+
+    // The API trims spaces and would refuse an empty name with a message about the whole form.
+    await expect(page.locator('input[name="name"]:invalid')).toHaveCount(1);
+    expect(sent).toBe(0);
+  });
+
+  test('закрытое во время запроса окно на оплату не уводит', async ({ page }) => {
+    let answer = () => {};
+    await fakeCheckout(page);
+    await page.route('**/api/bookings', async (route) => {
+      await new Promise<void>((resolve) => (answer = resolve));
+      await route.fulfill({ status: 201, json: booking('awaiting_payment', CHECKOUT) }).catch(() => {});
+    });
+    await openDialog(page);
+    await fillForm(page);
+    await page.locator('#consent').check();
+    await page.locator('#book-submit').click();
+    await expect(page.locator('#book-submit')).toHaveText('Открываем оплату…');
+
+    await page.keyboard.press('Escape');
+
+    // Cancelled: the dialog is ready again before the API has even answered.
+    await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
+    answer();
+    await page.locator('main [data-book="session"]').first().click();
+    await expect(page.locator('#book-error')).toBeHidden();
+    await expect(page).toHaveURL('/');
   });
 
   test('сбой платёжного сервиса: понятное сообщение и повтор того же запроса', async ({ page }) => {
@@ -71,7 +133,7 @@ test.describe('оплата из окна брони', () => {
     await expect(page.locator('#book-submit')).toHaveText('Оплатить €200 →');
 
     await page.locator('#book-submit').click();
-    await page.waitForURL(CHECKOUT);
+    await expect(page).toHaveURL(CHECKOUT);
     expect(keys[1]).toBe(keys[0]);
   });
 
@@ -98,6 +160,9 @@ test.describe('оплата из окна брони', () => {
     ['API не принял анкету', (route) => route.fulfill({ status: 422, json: { detail: [] } }), /Проверьте анкету/],
     ['нет связи с сервером', (route) => route.abort(), /Нет связи с сервером/],
     ['сервер ответил ошибкой', (route) => route.fulfill({ status: 500, body: 'oops' }), /на нашей стороне/],
+    // Not a missing booking: the API is not where the site expects it.
+    ['по адресу API ничего нет', (route) => route.fulfill({ status: 404, body: 'Not Found' }), /на нашей стороне/],
+    ['API ответил непонятно', (route) => route.fulfill({ status: 201, json: {} }), /на нашей стороне/],
   ];
   for (const [why, reply, message] of failures) {
     test(`${why}: понятное сообщение, анкета остаётся`, async ({ page }) => {
@@ -122,7 +187,7 @@ test.describe('оплата из окна брони', () => {
 
     await page.locator('#book-submit').click();
 
-    await page.waitForURL(`**/booking/?id=${ID}`);
+    await expect(page).toHaveURL(`/booking/?id=${ID}`);
     await expect(page.locator('#booking-title')).toHaveText('Оплачено');
   });
 
@@ -153,16 +218,15 @@ test.describe('страница брони', () => {
 
   test('пока оплата в пути, страница спрашивает снова и показывает итог', async ({ page }) => {
     await page.clock.install();
-    const calls = await statusSequence(page, [
-      answer('awaiting_payment'),
-      answer('awaiting_payment'),
-      answer('paid'),
-    ]);
+    const calls = await statusSequence(page, [inFlight, inFlight, answer('paid')]);
     await page.goto(`/booking/?id=${ID}`);
-    await expect(page.locator('#booking-title')).toHaveText('Проверяем оплату…');
 
-    await page.clock.runFor(3000);
-    await page.clock.runFor(3000);
+    // One poll at a time: each answer arrives before the timer for the next one is run.
+    for (let asked = 1; asked < 3; asked++) {
+      await expect.poll(calls).toBe(asked);
+      await expect(page.locator('#booking-title')).toHaveText('Проверяем оплату…');
+      await page.clock.runFor(3000);
+    }
 
     await expect(page.locator('#booking-title')).toHaveText('Оплачено');
     expect(calls()).toBe(3);
@@ -170,11 +234,9 @@ test.describe('страница брони', () => {
 
   test('опрос не бесконечный', async ({ page }) => {
     await page.clock.install();
-    const calls = await statusSequence(page, [answer('awaiting_payment')]);
+    const calls = await statusSequence(page, [inFlight]);
     await page.goto(`/booking/?id=${ID}`);
-    await expect(page.locator('#booking-title')).toHaveText('Проверяем оплату…');
 
-    // One poll at a time: each answer arrives after the timer that asked for it has run.
     for (let asked = 1; asked < 20; asked++) {
       await expect.poll(calls).toBe(asked);
       await page.clock.runFor(3000);
@@ -185,9 +247,47 @@ test.describe('страница брони', () => {
     expect(calls()).toBe(20);
   });
 
+  test('временный сбой связи не останавливает опрос', async ({ page }) => {
+    await page.clock.install();
+    const calls = await statusSequence(page, [(route) => route.abort(), answer('paid')]);
+    await page.goto(`/booking/?id=${ID}`);
+    await expect(page.locator('#booking-title')).toHaveText('Не удалось проверить оплату');
+    await expect(page.locator('#booking-text')).toHaveText(/Нет связи с сервером/);
+
+    await page.clock.runFor(3000);
+
+    await expect(page.locator('#booking-title')).toHaveText('Оплачено');
+    expect(calls()).toBe(2);
+  });
+
+  test('оплата открыта: можно вернуться к ней', async ({ page }) => {
+    await fakeCheckout(page);
+    await statusSequence(page, [inFlight]);
+    await page.goto(`/booking/?id=${ID}`);
+    await expect(page.locator('#booking-title')).toHaveText('Проверяем оплату…');
+
+    await page.getByRole('link', { name: 'Вернуться к оплате' }).click();
+
+    await expect(page).toHaveURL(CHECKOUT);
+  });
+
+  test('оплату не удалось открыть: страница не ждёт впустую', async ({ page }) => {
+    await page.clock.install();
+    const calls = await statusSequence(page, [answer('awaiting_payment', true)]);
+    await page.goto(`/booking/?id=${ID}`);
+    await expect(page.locator('#booking-title')).toHaveText('Не удалось открыть оплату');
+
+    await page.clock.runFor(3000 * 3);
+
+    expect(calls()).toBe(1);
+    await expect(page.locator('#booking-title')).toHaveText('Не удалось открыть оплату');
+  });
+
   for (const [status, title] of [
     ['declined', 'Оплата не прошла'],
     ['expired', 'Время на оплату истекло'],
+    // A checkout that could not be opened: the provider was down when the last one was asked for.
+    ['awaiting_payment', 'Не удалось открыть оплату'],
   ] as const) {
     test(`${title}: «Оплатить снова» открывает новую страницу оплаты`, async ({ page }) => {
       const again: Request[] = [];
@@ -202,7 +302,7 @@ test.describe('страница брони', () => {
 
       await page.locator('#booking-retry').click();
 
-      await page.waitForURL('https://pay.example/again');
+      await expect(page).toHaveURL('https://pay.example/again');
       expect(again.map((request) => request.method())).toEqual(['POST']);
     });
   }
@@ -257,17 +357,17 @@ test.describe('страница брони', () => {
     });
   }
 
-  test('бронь, которой нет у API', async ({ page }) => {
-    await statusSequence(page, [(route) => route.fulfill({ status: 404, json: { detail: 'booking_not_found' } })]);
+  test('бронь, которой нет у API: больше не спрашивает', async ({ page }) => {
+    await page.clock.install();
+    const calls = await statusSequence(page, [
+      (route) => route.fulfill({ status: 404, json: { detail: 'booking_not_found' } }),
+    ]);
     await page.goto(`/booking/?id=${ID}`);
     await expect(page.locator('#booking-title')).toHaveText('Бронь не найдена');
-  });
 
-  test('нет связи с сервером: понятное сообщение', async ({ page }) => {
-    await statusSequence(page, [(route) => route.abort()]);
-    await page.goto(`/booking/?id=${ID}`);
-    await expect(page.locator('#booking-title')).toHaveText('Не удалось проверить оплату');
-    await expect(page.locator('#booking-text')).toHaveText(/Нет связи с сервером/);
+    await page.clock.runFor(3000 * 3);
+
+    expect(calls()).toBe(1);
   });
 
   test('шапка ведёт на разделы главной', async ({ page }) => {
@@ -276,16 +376,7 @@ test.describe('страница брони', () => {
 
     await page.getByRole('link', { name: 'Чем помогаю' }).click();
 
-    await page.waitForURL('**/#help');
+    await expect(page).toHaveURL('/#help');
     await expect(page.locator('#help')).toBeInViewport();
-  });
-
-  test('загружается без ошибок в консоли', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    await statusSequence(page, [answer('paid')]);
-    await page.goto(`/booking/?id=${ID}`);
-    await expect(page.locator('#booking-title')).toHaveText('Оплачено');
-    expect(errors).toEqual([]);
   });
 });

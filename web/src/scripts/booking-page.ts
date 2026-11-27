@@ -10,7 +10,12 @@ import {
 interface Screen {
   title: string;
   text: string;
+}
+
+/** What the customer can do from a screen: pay again, or go back to the checkout still open. */
+interface Actions {
   retry?: boolean;
+  resume?: string | null;
 }
 
 const SCREENS: Record<BookingStatus, Screen> = {
@@ -25,12 +30,10 @@ const SCREENS: Record<BookingStatus, Screen> = {
   declined: {
     title: 'Оплата не прошла',
     text: 'Банк отклонил платёж. Можно попробовать ещё раз — другой картой или чуть позже.',
-    retry: true,
   },
   expired: {
     title: 'Время на оплату истекло',
     text: 'Ссылка на оплату действует ограниченное время. Можно открыть новую.',
-    retry: true,
   },
   needs_review: {
     title: 'Оплата получена и ждёт проверки',
@@ -42,12 +45,23 @@ const SCREENS: Record<BookingStatus, Screen> = {
   },
 };
 
-const BOOKING_ID = /^[0-9a-f]{32}$/;
+// Awaiting payment, but no checkout is open: the last one could not be opened.
+const NOT_OPENED: Screen = {
+  title: 'Не удалось открыть оплату',
+  text: 'Платёжный сервис не ответил. Попробуйте открыть оплату ещё раз.',
+};
 
+// Still in flight when the polling gives up: the checkout is open.
 const STILL_WAITING: Screen = {
   title: 'Оплата пока не подтвердилась',
-  text: 'Если деньги списались, я это увижу и напишу вам. Можно обновить страницу позже.',
+  text: 'Если вы ещё не оплатили, вернитесь к оплате. Если деньги списались, я это увижу и напишу вам.',
 };
+
+const BOOKING_ID = /^[0-9a-f]{32}$/;
+
+/** A checkout is open and its outcome is still to come. */
+const inFlight = (booking: BookingView) =>
+  booking.status === 'awaiting_payment' && booking.checkout_url !== null;
 
 interface PollPolicy {
   intervalMs: number;
@@ -61,6 +75,7 @@ export class BookingStatusPage {
       title: HTMLElement;
       text: HTMLElement;
       retry: HTMLButtonElement;
+      resume: HTMLAnchorElement;
     },
     private readonly api: BookingApi,
     private readonly poll: PollPolicy,
@@ -77,26 +92,25 @@ export class BookingStatusPage {
     await this.watch(id);
   }
 
-  /** Show the booking's status, asking again while its payment is in flight. */
+  /** Show the booking, asking again while its payment is in flight or the API is out of reach. */
   private async watch(id: string): Promise<void> {
+    let waiting: BookingView | null = null;
     for (let attempt = 1; attempt <= this.poll.attempts; attempt++) {
-      const booking = await this.load(id);
-      if (!booking) return;
-      if (booking.status !== 'awaiting_payment') return;
-      if (attempt < this.poll.attempts) await sleep(this.poll.intervalMs);
+      if (attempt > 1) await sleep(this.poll.intervalMs);
+      try {
+        const booking = await this.api.status(id);
+        this.showBooking(booking);
+        waiting = inFlight(booking) ? booking : null;
+        if (!waiting) return;
+      } catch (error) {
+        const failure = BookingApiError.failureOf(error);
+        this.showFailure(failure);
+        waiting = null;
+        // A booking the API does not know will not appear; any other failure may pass.
+        if (failure === 'not_found') return;
+      }
     }
-    this.show(STILL_WAITING);
-  }
-
-  private async load(id: string): Promise<BookingView | null> {
-    try {
-      const booking = await this.api.status(id);
-      this.show(SCREENS[booking.status]);
-      return booking;
-    } catch (error) {
-      this.showFailure(BookingApiError.failureOf(error));
-      return null;
-    }
+    if (waiting) this.show(STILL_WAITING, { resume: waiting.checkout_url });
   }
 
   private async payAgain(id: string): Promise<void> {
@@ -104,13 +118,22 @@ export class BookingStatusPage {
     try {
       const booking = await this.api.payAgain(id);
       if (booking.checkout_url) window.location.assign(booking.checkout_url);
-      else this.show(SCREENS[booking.status]);
+      else this.showBooking(booking);
     } catch (error) {
       const failure = BookingApiError.failureOf(error);
       // The booking moved on meanwhile (paid in another tab, say): show where it stands now.
-      if (failure === 'conflict') await this.watch(id);
-      else this.show({ title: 'Не удалось открыть оплату', text: failureMessages[failure], retry: true });
+      if (failure === 'conflict') return this.watch(id);
+      this.show({ title: 'Не удалось открыть оплату', text: failureMessages[failure] }, { retry: true });
+      this.view.retry.focus();
     }
+  }
+
+  private showBooking(booking: BookingView): void {
+    const failedToOpen = booking.status === 'awaiting_payment' && booking.checkout_url === null;
+    this.show(failedToOpen ? NOT_OPENED : SCREENS[booking.status], {
+      retry: booking.can_retry_payment,
+      resume: inFlight(booking) ? booking.checkout_url : null,
+    });
   }
 
   private showFailure(failure: Failure): void {
@@ -118,11 +141,13 @@ export class BookingStatusPage {
     this.show({ title, text: failureMessages[failure] });
   }
 
-  private show(screen: Screen): void {
+  private show(screen: Screen, actions: Actions = {}): void {
     this.view.title.textContent = screen.title;
     this.view.text.textContent = screen.text;
-    this.view.retry.hidden = !screen.retry;
+    this.view.retry.hidden = !actions.retry;
     this.view.retry.disabled = false;
+    this.view.resume.hidden = !actions.resume;
+    if (actions.resume) this.view.resume.href = actions.resume;
   }
 }
 

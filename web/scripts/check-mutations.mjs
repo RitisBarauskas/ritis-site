@@ -55,20 +55,29 @@ const MUTATIONS = [
   M(DIALOG, 'tabindex="-1" autocomplete="off"', 'autocomplete="off"', 'ловушка для ботов'),
   M(DIALOG, 'booking.checkout_url ?? `/booking/?id=', 'booking.checkout_url ?? `/?id=', 'повтор уже оплаченной анкеты'),
   M(DIALOG, 'if (!event.persisted) return;', 'return;', 'возврат со страницы оплаты кнопкой «Назад» окно брони'),
+  M(DIALOG, "dlg.addEventListener('close', () => pending?.abort());", "dlg.addEventListener('close', () => {});", 'закрытое во время запроса окно'),
+  M(DIALOG, String.raw`required maxlength="100" pattern=".*\S.*"`, 'required maxlength="100"', 'имя из одних пробелов'),
   // What each failure of the API turns into.
-  M(API, "[422, 'invalid'],", '', 'API не принял анкету'),
-  M(API, "[502, 'provider_down'],", '', 'сбой платёжного сервиса'),
+  M(API, "if (status === 422 && Array.isArray(detail)) return 'invalid';", "if (false) return 'invalid';", 'API не принял анкету'),
+  M(API, "['payment_provider_unavailable', 'provider_down'],", '', 'сбой платёжного сервиса'),
   M(API, "throw new BookingApiError('network');", "throw new BookingApiError('server');", 'нет связи с сервером'),
+  M(API, "if (typeof detail === 'string')", "if (status === 404) return 'not_found'; if (typeof detail === 'string')", 'по адресу API ничего нет'),
+  M(API, 'if (response.ok && isBookingView(body)) return body;', 'if (response.ok) return body as BookingView;', 'API ответил непонятно'),
   // The booking page.
   M(PAGE, 'if (!id || !BOOKING_ID.test(id)) {', 'if (!id) {', 'ссылка без брони не ходит в API'),
   M(PAGE, 'attempt <= this.poll.attempts', 'attempt < this.poll.attempts', 'опрос не бесконечный'),
-  M(PAGE, 'this.view.retry.hidden = !screen.retry;', 'this.view.retry.hidden = true;', 'Оплата не прошла: «Оплатить снова»'),
-  M(PAGE, "if (failure === 'conflict') await this.watch(id);", 'if (false) await this.watch(id);', '«Оплатить снова», а бронь тем временем оплачена'),
-  M(PAGE, 'failureMessages[failure], retry: true });', 'failureMessages[failure] });', '«Оплатить снова», а платёжный сервис не отвечает'),
+  M(PAGE, "booking.status === 'awaiting_payment' && booking.checkout_url !== null;", "booking.status === 'awaiting_payment';", 'оплату не удалось открыть: страница не ждёт впустую'),
+  M(PAGE, "if (failure === 'not_found') return;", 'return;', 'временный сбой связи не останавливает опрос'),
+  M(PAGE, "if (failure === 'not_found') return;", 'if (false) return;', 'бронь, которой нет у API: больше не спрашивает'),
+  M(PAGE, 'retry: booking.can_retry_payment,', 'retry: true,', 'оплачено'),
+  M(PAGE, 'resume: inFlight(booking) ? booking.checkout_url : null,', 'resume: null,', 'оплата открыта: можно вернуться к ней'),
+  M(PAGE, 'this.view.retry.hidden = !actions.retry;', 'this.view.retry.hidden = true;', 'Оплата не прошла: «Оплатить снова»'),
+  M(PAGE, "if (failure === 'conflict') return this.watch(id);", 'if (false) return this.watch(id);', '«Оплатить снова», а бронь тем временем оплачена'),
+  M(PAGE, 'text: failureMessages[failure] }, { retry: true });', 'text: failureMessages[failure] });', '«Оплатить снова», а платёжный сервис не отвечает'),
   M('src/pages/booking/index.astro', 'if (event.persisted) window.location.reload();', 'if (false) window.location.reload();', 'возврат со страницы оплаты кнопкой «Назад» страница брони'),
   // Shared pieces the booking flow relies on.
   M('src/styles/base.css', '[hidden]{display:none!important}', '', 'оплата на проверке'),
-  M('src/site.config.ts', 'russianMethods: false,', 'russianMethods: true,', 'обещает только те способы оплаты'),
+  M('src/sections/Offers.astro', '<span>Visa</span><span>Mastercard</span><em>', '<span>Visa</span><span>Mastercard</span><span>Мир</span><em>', 'обещает только те способы оплаты'),
   M('src/components/Header.astro', '<a href="/#help">', '<a href="#help">', 'шапка ведёт на разделы главной'),
 ];
 
@@ -91,10 +100,18 @@ function run(titles) {
   });
   const output = `${done.stdout}${done.stderr}`;
   const count = (word) => Number(output.match(new RegExp(`(\\d+) ${word}`))?.[1] ?? 0);
-  return { code: done.status, failed: count('failed'), passed: count('passed') };
+  return {
+    code: done.status,
+    failed: count('failed'),
+    passed: count('passed'),
+    // Set by the guard in tests/e2e/fixtures.ts: the mutant broke a page script, and the tests
+    // failed for that rather than for the rule they check.
+    scriptBroken: output.includes('uncaught error in a page script'),
+  };
 }
 
-function verdict({ code, failed }) {
+function verdict({ code, failed, scriptBroken }) {
+  if (scriptBroken) return 'BROKEN (script)';
   if (code === 1 && failed > 0) return 'caught';
   if (code === 0) return 'SURVIVED';
   return `BROKEN (exit ${code})`;

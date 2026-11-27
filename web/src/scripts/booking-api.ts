@@ -1,12 +1,8 @@
 /** The booking API as the browser sees it (api/src/ritis_api/http): no personal data comes back. */
 
-export type BookingStatus =
-  | 'awaiting_payment'
-  | 'paid'
-  | 'declined'
-  | 'expired'
-  | 'refunded'
-  | 'needs_review';
+const STATUSES = ['awaiting_payment', 'paid', 'declined', 'expired', 'refunded', 'needs_review'] as const;
+
+export type BookingStatus = (typeof STATUSES)[number];
 
 export interface BookingView {
   id: string;
@@ -30,12 +26,16 @@ export interface BookingRequest {
 
 export type Failure = 'invalid' | 'not_found' | 'conflict' | 'provider_down' | 'network' | 'server';
 
-const FAILURE_BY_STATUS: ReadonlyMap<number, Failure> = new Map([
-  [404, 'not_found'],
-  [409, 'conflict'],
-  [422, 'invalid'],
-  [502, 'provider_down'],
+// The API names each failure in `detail`; a proxy or a host in front of it answers with the
+// same HTTP statuses, so the status alone says little.
+const FAILURE_BY_DETAIL: ReadonlyMap<string, Failure> = new Map([
+  ['booking_not_found', 'not_found'],
+  ['booking_conflict', 'conflict'],
+  ['booking_busy', 'conflict'],
+  ['payment_provider_unavailable', 'provider_down'],
 ]);
+
+const TIMEOUT_MS = 20_000;
 
 export class BookingApiError extends Error {
   constructor(readonly failure: Failure) {
@@ -48,7 +48,6 @@ export class BookingApiError extends Error {
   }
 }
 
-/** What to tell a person about each failure. */
 export const failureMessages: Record<Failure, string> = {
   invalid: 'Проверьте анкету: какое-то поле заполнено не так.',
   not_found: 'Бронь не найдена. Проверьте ссылку или оформите бронь заново.',
@@ -61,12 +60,17 @@ export const failureMessages: Record<Failure, string> = {
 export class BookingApi {
   constructor(private readonly base = '/api/bookings') {}
 
-  create(request: BookingRequest, idempotencyKey: string): Promise<BookingView> {
-    return this.send(this.base, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-      body: JSON.stringify(request),
-    });
+  /** `cancel` aborts the request; the booking may still be created, and a repeat finds it. */
+  create(request: BookingRequest, idempotencyKey: string, cancel?: AbortSignal): Promise<BookingView> {
+    return this.send(
+      this.base,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+        body: JSON.stringify(request),
+      },
+      cancel,
+    );
   }
 
   status(id: string): Promise<BookingView> {
@@ -77,14 +81,34 @@ export class BookingApi {
     return this.send(`${this.base}/${encodeURIComponent(id)}/payments`, { method: 'POST' });
   }
 
-  private async send(url: string, init: RequestInit): Promise<BookingView> {
+  private async send(url: string, init: RequestInit, cancel?: AbortSignal): Promise<BookingView> {
+    const timeout = AbortSignal.timeout(TIMEOUT_MS);
     let response: Response;
     try {
-      response = await fetch(url, init);
+      response = await fetch(url, { ...init, signal: cancel ? AbortSignal.any([cancel, timeout]) : timeout });
     } catch {
       throw new BookingApiError('network');
     }
-    if (response.ok) return (await response.json()) as BookingView;
-    throw new BookingApiError(FAILURE_BY_STATUS.get(response.status) ?? 'server');
+    const body: unknown = await response.json().catch(() => null);
+    if (response.ok && isBookingView(body)) return body;
+    throw new BookingApiError(response.ok ? 'server' : failureOf(response.status, body));
   }
+}
+
+function failureOf(status: number, body: unknown): Failure {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === 'string') return FAILURE_BY_DETAIL.get(detail) ?? 'server';
+  // FastAPI's own validation answer: a list of the fields that failed.
+  if (status === 422 && Array.isArray(detail)) return 'invalid';
+  return 'server';
+}
+
+function isBookingView(body: unknown): body is BookingView {
+  const view = body as Partial<BookingView> | null;
+  return (
+    typeof view?.id === 'string' &&
+    (STATUSES as readonly unknown[]).includes(view.status) &&
+    (view.checkout_url === null || typeof view.checkout_url === 'string') &&
+    typeof view.can_retry_payment === 'boolean'
+  );
 }

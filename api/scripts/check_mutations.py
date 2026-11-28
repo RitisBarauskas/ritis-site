@@ -243,18 +243,7 @@ MUTATIONS = [
         "return booking",
         "test_a_payment_survives_a_concurrent_change_of_the_booking",
     ),
-    M(
-        "app/confirm_payment.py",
-        "if booking.status is BookingStatus.PAID and status is not BookingStatus.PAID:",
-        "if booking.status is BookingStatus.PAID:",
-        "test_a_partial_refund_is_not_announced_as_a_payment",
-    ),
-    M(
-        "app/confirm_payment.py",
-        "booking.review_reason != reason",
-        "status is not BookingStatus.NEEDS_REVIEW",
-        "test_every_new_problem_is_announced_for_review",
-    ),
+    # (Which change is announced is the aggregate's rule now: see the owner-notice mutants.)
     # Opening bookings.
     M(
         "app/open_booking.py",
@@ -452,7 +441,7 @@ MUTATIONS = [
         "adapters/firestore.py",
         "if key_ref.get(transaction=transaction).exists:",
         "if False:",
-        "test_one_booking_per_idempotency_key and firestore or test_twins_racing",
+        "test_one_booking_per_idempotency_key and firestore or test_a_double_click",
         marks="firestore",
     ),
     M(
@@ -492,7 +481,7 @@ MUTATIONS = [
     ),
     M(
         "settings.py",
-        'if os.environ.get("K_SERVICE") and self.storage == "memory":',
+        'if self.storage == "memory":',
         "if False:",
         "test_memory_storage_is_refused_on_cloud_run",
     ),
@@ -508,6 +497,100 @@ MUTATIONS = [
         "return self.created_at + UNPAID_RETENTION if self.status in _UNPAID else None",
         "return None",
         "test_a_booking_nobody_paid_for_goes_after_thirty_days",
+    ),
+    # Owner notices: recorded with the change, delivered at least once, sent nowhere else.
+    M(
+        "domain/booking.py",
+        "if self.status is BookingStatus.PAID and status_before is not BookingStatus.PAID:",
+        "if self.status is BookingStatus.PAID:",
+        "test_a_payment_leaves_one_notice_for_the_owner",
+    ),
+    M(
+        "domain/booking.py",
+        "elif self.status is BookingStatus.NEEDS_REVIEW and self.review_reason != reason_before:",
+        "elif self.status is BookingStatus.NEEDS_REVIEW:",
+        "test_each_new_problem_leaves_a_notice_with_its_reason",
+    ),
+    M(
+        "app/confirm_payment.py",
+        "return self._notices.deliver(booking)",
+        "return booking",
+        "test_a_payment_is_recorded_and_announced_once",
+    ),
+    M(
+        "app/deliver_notices.py",
+        "                booking.notice_sent(notice)",
+        "                pass",
+        "test_a_delivered_notice_leaves_the_stored_booking",
+    ),
+    M(
+        "app/deliver_notices.py",
+        "booking = self._repository.get(booking.id)",
+        "return booking",
+        "test_marking_a_notice_sent_survives_a_concurrent_change",
+    ),
+    M(
+        "app/deliver_notices.py",
+        "except Exception:",
+        "except NotifierError:",
+        "test_a_bug_in_the_notifier_does_not_fail_the_recorded_payment",
+    ),
+    M(
+        "http/internal.py",
+        "if not hmac.compare_digest(given, expected):",
+        "if False:",
+        "test_the_sweep_needs_its_token",
+    ),
+    M(
+        "adapters/telegram.py",
+        'raise NotifierError(f"Telegram unreachable: {type(exc).__name__}") from None',
+        'raise NotifierError(f"Telegram unreachable: {exc}") from exc',
+        "test_an_unreachable_api_is_a_notifier_error_without_the_token",
+    ),
+    M(
+        "adapters/telegram.py",
+        "if response.status_code != httpx.codes.OK:",
+        "if False:",
+        "test_a_refusal_is_a_notifier_error",
+    ),
+    M(
+        "adapters/telegram.py",
+        'f"{booking.customer.name} — {booking.customer.contact}"',
+        'f"{booking.customer.name} — {booking.customer.contact} — {booking.customer.about}"',
+        "test_sends_the_booking_to_the_owner_chat_as_plain_text",
+    ),
+    M(
+        "main.py",
+        'logging.getLogger("httpx").setLevel(logging.WARNING)',
+        "pass",
+        "test_the_bot_token_never_reaches_the_log",
+    ),
+    M(
+        "settings.py",
+        "if self.telegram_bot_token is None or self.sweep_token is None:",
+        "if False:",
+        "test_cloud_run_needs_telegram_and_the_sweep",
+    ),
+    M(
+        "adapters/firestore.py",
+        '"has_unsent_notices": bool(booking.unsent_notices),',
+        '"has_unsent_notices": False,',
+        "test_finds_the_bookings_that_keep_unsent_notices and firestore",
+        marks="firestore",
+    ),
+    M(
+        "adapters/firestore.py",
+        '"unsent_notices": [_encode_notice(n) for n in booking.unsent_notices],',
+        '"unsent_notices": [],',
+        "test_reads_back_what_was_stored and firestore",
+        marks="firestore",
+    ),
+    M(
+        "adapters/firestore.py",
+        "            raise ConcurrentModificationError(booking.id) from exc",
+        "            raise",
+        "test_writers_crowding_one_read_never_both_write",
+        marks="firestore",
     ),
 ]
 

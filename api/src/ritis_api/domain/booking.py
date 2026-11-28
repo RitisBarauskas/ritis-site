@@ -4,6 +4,9 @@ The provider is the source of truth about money. The booking records what it rep
 when the report contradicts the booking (another amount, another currency, a second payment,
 a refund above the charge), flags it for a human instead of guessing. A flag is never cleared
 automatically.
+
+What the owner must hear about (a payment, a new flag) the booking records as a notice, stored
+with it in the same write: a notice is delivered at least once, even when the messenger is down.
 """
 
 from __future__ import annotations
@@ -67,6 +70,20 @@ _UNPAID = frozenset({BookingStatus.AWAITING_PAYMENT, BookingStatus.DECLINED, Boo
 UNPAID_RETENTION = timedelta(days=30)
 
 
+class NoticeKind(StrEnum):
+    PAID = "paid"
+    NEEDS_REVIEW = "needs_review"
+
+
+@dataclass(frozen=True, slots=True)
+class OwnerNotice:
+    """Something about a booking its owner must hear; kept with the booking until delivered."""
+
+    kind: NoticeKind
+    at: datetime
+    reason: str | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class Customer:
     name: str
@@ -91,6 +108,7 @@ class Booking:
     attempts: list[PaymentAttempt] = field(default_factory=list)
     paid_at: datetime | None = None
     review_reason: str | None = None
+    unsent_notices: list[OwnerNotice] = field(default_factory=list)
     # Optimistic-concurrency token, owned by the repository.
     version: int = 0
 
@@ -179,10 +197,19 @@ class Booking:
     def apply_report(self, order_id: OrderId, report: PaymentReport, now: datetime) -> bool:
         """Record what the provider says about one order. Returns False when nothing changed."""
         attempt = self.attempt(order_id)
+        before = (self.status, self.review_reason)
         if isinstance(report, Charged):
             changed = self._record_charge(attempt, report.amount, now)
-            return self._record_refund(attempt, report.refunded) or changed
-        return self._record_not_charged(attempt, report)
+            changed = self._record_refund(attempt, report.refunded) or changed
+        else:
+            changed = self._record_not_charged(attempt, report)
+        self._note_for_owner(*before, now)
+        return changed
+
+    def notice_sent(self, notice: OwnerNotice) -> None:
+        """The owner has the notice; one already gone (sent by a concurrent run) is fine."""
+        if notice in self.unsent_notices:
+            self.unsent_notices.remove(notice)
 
     # --- rules ---------------------------------------------------------------------------
 
@@ -249,6 +276,17 @@ class Booking:
         if self.status is BookingStatus.AWAITING_PAYMENT and attempt is self.current_attempt:
             self.status = booking_status
         return True
+
+    def _note_for_owner(
+        self, status_before: BookingStatus, reason_before: str | None, now: datetime
+    ) -> None:
+        # A payment once, when the booking becomes paid; a flag each time a new reason joins.
+        if self.status is BookingStatus.PAID and status_before is not BookingStatus.PAID:
+            self.unsent_notices.append(OwnerNotice(NoticeKind.PAID, now))
+        elif self.status is BookingStatus.NEEDS_REVIEW and self.review_reason != reason_before:
+            self.unsent_notices.append(
+                OwnerNotice(NoticeKind.NEEDS_REVIEW, now, self.review_reason)
+            )
 
     def _everything_refunded(self) -> bool:
         approved = [a for a in self.attempts if a.status is AttemptStatus.APPROVED]

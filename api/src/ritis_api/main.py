@@ -14,11 +14,14 @@ from ritis_api.adapters.firestore import FirestoreBookingRepository
 from ritis_api.adapters.flitt import FlittNotifications, FlittPaymentProvider
 from ritis_api.adapters.log_notifier import LoggingNotifier
 from ritis_api.adapters.memory import InMemoryBookingRepository
+from ritis_api.adapters.telegram import TelegramNotifier
 from ritis_api.app.catalog import load_catalog
 from ritis_api.app.confirm_payment import ConfirmPayment
+from ritis_api.app.deliver_notices import DeliverNotices
 from ritis_api.app.open_booking import OpenBooking
 from ritis_api.http.app import create_app
 from ritis_api.http.flitt import flitt_checkout_settings
+from ritis_api.ports.notifications import Notifier
 from ritis_api.ports.storage import BookingRepository
 from ritis_api.settings import Settings
 
@@ -27,6 +30,8 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     """The composition root: the only place that knows every concrete adapter."""
     settings = settings or Settings()  # filled from RITIS_* environment variables
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    # httpx logs every request URL at INFO, and the Telegram bot token is part of its URL.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     def clock() -> datetime:
         return datetime.now(UTC)
@@ -43,10 +48,11 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         base_url=settings.flitt_base_url,
     )
     repository = _repository(settings)
+    deliver_notices = DeliverNotices(repository=repository, notifier=_notifier(settings, http))
     confirm_payment = ConfirmPayment(
         repository=repository,
         provider=provider,
-        notifier=LoggingNotifier(),
+        notices=deliver_notices,
         clock=clock,
         recheck_interval=timedelta(seconds=settings.recheck_interval_seconds),
     )
@@ -72,7 +78,9 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         flitt_notifications=FlittNotifications.for_merchant(
             merchant_id=settings.flitt_merchant_id, secret_key=secret
         ),
+        deliver_notices=deliver_notices,
         site_url=settings.site_url,
+        sweep_token=settings.sweep_token.get_secret_value() if settings.sweep_token else None,
         lifespan=lifespan,
     )
 
@@ -81,3 +89,13 @@ def _repository(settings: Settings) -> BookingRepository:
     if settings.storage == "firestore":
         return FirestoreBookingRepository(firestore.Client(database=settings.firestore_database))
     return InMemoryBookingRepository()
+
+
+def _notifier(settings: Settings, http: httpx.Client) -> Notifier:
+    if settings.telegram_bot_token is None or settings.telegram_chat_id is None:
+        return LoggingNotifier()
+    return TelegramNotifier(
+        http,
+        token=settings.telegram_bot_token.get_secret_value(),
+        chat_id=settings.telegram_chat_id,
+    )

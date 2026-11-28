@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pytest
+from google.cloud import firestore
 
 from ritis_api.adapters.firestore import BOOKINGS, IDEMPOTENCY_KEYS, FirestoreBookingRepository
 from ritis_api.domain.booking import Booking
@@ -46,27 +47,27 @@ def test_a_paid_booking_is_kept() -> None:
     assert client.collection(BOOKINGS).document(stored.id).get().get("expire_at") is None
 
 
-def test_twins_racing_with_one_key_make_one_booking() -> None:
-    repository = FirestoreBookingRepository(emulated_firestore())
-    twins = [booking(booking_id=f"{n:032x}") for n in range(1, 6)]
+def race_adding(client: firestore.Client, count: int) -> list[str]:
+    repository = FirestoreBookingRepository(client)
+    twins = [booking(booking_id=f"{n:032x}") for n in range(1, count + 1)]
 
     def add(twin: Booking) -> str:
         try:
             repository.add(twin)
         except DuplicateIdempotencyKeyError:
             return "refused"
+        except ConcurrentModificationError:
+            return "busy"
         return "added"
 
-    with ThreadPoolExecutor(max_workers=len(twins)) as pool:
-        outcomes = sorted(pool.map(add, twins))
-
-    assert outcomes == ["added"] + ["refused"] * (len(twins) - 1)
+    with ThreadPoolExecutor(max_workers=count) as pool:
+        return sorted(pool.map(add, twins))
 
 
-def test_writers_racing_from_one_read_keep_one_change() -> None:
-    repository = FirestoreBookingRepository(emulated_firestore())
+def race_saving(client: firestore.Client, count: int) -> tuple[list[str], int]:
+    repository = FirestoreBookingRepository(client)
     repository.add(booking())
-    copies = [repository.get(BookingId("a" * 32)) for _ in range(5)]
+    copies = [repository.get(BookingId("a" * 32)) for _ in range(count)]
 
     def save(copy: Booking) -> str:
         try:
@@ -75,8 +76,37 @@ def test_writers_racing_from_one_read_keep_one_change() -> None:
             return "refused"
         return "saved"
 
-    with ThreadPoolExecutor(max_workers=len(copies)) as pool:
+    with ThreadPoolExecutor(max_workers=count) as pool:
         outcomes = sorted(pool.map(save, copies))
+    return outcomes, repository.get(BookingId("a" * 32)).version
 
-    assert outcomes == ["refused"] * (len(copies) - 1) + ["saved"]
-    assert repository.get(BookingId("a" * 32)).version == 2
+
+def test_a_double_click_makes_one_booking() -> None:
+    assert race_adding(emulated_firestore(), 2) == ["added", "refused"]
+
+
+def test_twins_crowding_one_key_never_make_two_bookings() -> None:
+    # Twelve at once exhaust the client's retries on the emulator: some may hear "busy, try
+    # again", which is honest. What may never happen is a second booking for the key.
+    client = emulated_firestore()
+
+    outcomes = race_adding(client, 12)
+
+    added = outcomes.count("added")
+    assert added <= 1
+    assert len(list(client.collection(BOOKINGS).stream())) == added
+    assert set(outcomes) <= {"added", "refused", "busy"}
+
+
+def test_two_writers_from_one_read_keep_one_change() -> None:
+    outcomes, version = race_saving(emulated_firestore(), 2)
+
+    assert (outcomes, version) == (["refused", "saved"], 2)
+
+
+def test_writers_crowding_one_read_never_both_write() -> None:
+    outcomes, version = race_saving(emulated_firestore(), 12)
+
+    saved = outcomes.count("saved")
+    assert saved <= 1
+    assert version == 1 + saved, "every write that went through moved the version once"

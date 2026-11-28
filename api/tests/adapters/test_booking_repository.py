@@ -15,7 +15,15 @@ from google.cloud import firestore
 
 from ritis_api.adapters.firestore import FirestoreBookingRepository
 from ritis_api.adapters.memory import InMemoryBookingRepository
-from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer, Language
+from ritis_api.domain.booking import (
+    Booking,
+    BookingFormat,
+    BookingStatus,
+    Customer,
+    Language,
+    NoticeKind,
+    OwnerNotice,
+)
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
 from ritis_api.domain.payment import AttemptStatus, PaymentAttempt
@@ -92,6 +100,10 @@ def lived_through_everything() -> Booking:
     stored.status = BookingStatus.NEEDS_REVIEW
     stored.paid_at = NOW + timedelta(minutes=6, microseconds=123456)
     stored.review_reason = "refunded 50.00 EUR of 200.00 EUR"
+    stored.unsent_notices = [
+        OwnerNotice(NoticeKind.PAID, NOW + timedelta(minutes=6, microseconds=123456)),
+        OwnerNotice(NoticeKind.NEEDS_REVIEW, NOW + timedelta(minutes=7), stored.review_reason),
+    ]
     return stored
 
 
@@ -145,3 +157,18 @@ def test_a_stale_copy_cannot_overwrite_a_newer_one(repository: BookingRepository
 def test_unknown_booking(repository: BookingRepository) -> None:
     with pytest.raises(BookingNotFoundError):
         repository.get(BookingId("f" * 32))
+
+
+def test_finds_the_bookings_that_keep_unsent_notices(repository: BookingRepository) -> None:
+    quiet = booking(booking_id="1" * 32, key="key-0000000000000001")
+    repository.add(quiet)
+    for n in range(2, 5):
+        loud = booking(booking_id=str(n) * 32, key=f"key-000000000000000{n}")
+        loud.unsent_notices = [OwnerNotice(NoticeKind.PAID, NOW)]
+        repository.add(loud)
+
+    found = repository.with_unsent_notices(limit=10)
+    few = repository.with_unsent_notices(limit=2)
+
+    assert sorted(b.id for b in found) == ["2" * 32, "3" * 32, "4" * 32]
+    assert len(few) == 2

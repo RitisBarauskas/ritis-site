@@ -4,7 +4,15 @@ from datetime import date, timedelta
 
 import pytest
 
-from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer, Language
+from ritis_api.domain.booking import (
+    Booking,
+    BookingFormat,
+    BookingStatus,
+    Customer,
+    Language,
+    NoticeKind,
+    OwnerNotice,
+)
 from ritis_api.domain.errors import BookingError
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
@@ -265,3 +273,51 @@ def test_a_booking_that_took_money_is_kept() -> None:
     # Refunded in full, yet money moved: records and disputes need the booking.
     assert booking.status is BookingStatus.REFUNDED
     assert booking.discard_after is None
+
+
+# --- owner notices: stored with the booking, so none is lost when the messenger is down ------
+
+
+def test_a_payment_leaves_one_notice_for_the_owner() -> None:
+    booking = with_checkout(new_booking(), O1)
+
+    booking.apply_report(O1, charged(), NOW)
+    booking.apply_report(O1, charged(), NOW)
+    booking.apply_report(O1, charged(refunded=eur(5000)), NOW)
+
+    # A repeat and a partial refund leave it paid: still the one notice.
+    assert booking.unsent_notices == [OwnerNotice(NoticeKind.PAID, NOW)]
+
+
+def test_each_new_problem_leaves_a_notice_with_its_reason() -> None:
+    booking = with_checkout(new_booking(), O1)
+
+    booking.apply_report(O1, charged(eur(30000)), NOW)
+    first = booking.review_reason
+    booking.apply_report(O1, charged(eur(30000), refunded=eur(30001)), NOW)
+    booking.apply_report(O1, charged(eur(30000), refunded=eur(30001)), NOW)  # a repeat: no news
+
+    assert booking.unsent_notices == [
+        OwnerNotice(NoticeKind.NEEDS_REVIEW, NOW, first),
+        OwnerNotice(NoticeKind.NEEDS_REVIEW, NOW, booking.review_reason),
+    ]
+    assert first != booking.review_reason
+
+
+def test_a_failed_payment_leaves_no_notice() -> None:
+    booking = with_checkout(new_booking(), O1)
+
+    booking.apply_report(O1, DECLINED, NOW)
+
+    assert booking.unsent_notices == []
+
+
+def test_a_sent_notice_leaves_the_booking() -> None:
+    booking = with_checkout(new_booking(), O1)
+    booking.apply_report(O1, charged(), NOW)
+    (notice,) = booking.unsent_notices
+
+    booking.notice_sent(notice)
+    booking.notice_sent(notice)  # sent by a concurrent run as well: nothing to do
+
+    assert booking.unsent_notices == []

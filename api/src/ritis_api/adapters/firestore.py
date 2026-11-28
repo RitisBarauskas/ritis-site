@@ -14,6 +14,7 @@ import hashlib
 from datetime import UTC, date, datetime
 from typing import Any
 
+from google.api_core.exceptions import Aborted
 from google.cloud import firestore
 
 from ritis_api.domain.booking import (
@@ -23,6 +24,8 @@ from ritis_api.domain.booking import (
     BookingStatus,
     Customer,
     Language,
+    NoticeKind,
+    OwnerNotice,
 )
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
@@ -38,6 +41,9 @@ IDEMPOTENCY_KEYS = "idempotency_keys"
 
 
 class FirestoreBookingRepository:
+    # Rounds of the client's own retries a contended creation gets before it gives up.
+    _CREATE_ROUNDS = 3
+
     def __init__(self, client: firestore.Client) -> None:
         self._client = client
         self._bookings = client.collection(BOOKINGS)
@@ -63,8 +69,19 @@ class FirestoreBookingRepository:
             )
             transaction.create(booking_ref, _encode(booking, version=1))
 
-        create(self._client.transaction())
-        booking.version = 1
+        for _ in range(self._CREATE_ROUNDS):
+            try:
+                create(self._client.transaction())
+            except ValueError as exc:
+                if not _gave_up_on_contention(exc):
+                    raise
+                # A twin that won has its key stored; without one, nobody won yet: try again.
+                if key_ref.get().exists:
+                    raise DuplicateIdempotencyKeyError(booking.idempotency_key) from exc
+                continue
+            booking.version = 1
+            return
+        raise ConcurrentModificationError(booking.id)
 
     def get(self, booking_id: BookingId) -> Booking:
         snapshot = self._bookings.document(booking_id).get()
@@ -90,6 +107,12 @@ class FirestoreBookingRepository:
             return _decode(BookingId(snapshot.id), _data(snapshot))
         return None
 
+    def with_unsent_notices(self, limit: int) -> list[Booking]:
+        query = self._bookings.where(
+            filter=firestore.FieldFilter("has_unsent_notices", "==", True)
+        ).limit(limit)
+        return [_decode(BookingId(s.id), _data(s)) for s in query.stream()]
+
     def save(self, booking: Booking) -> None:
         booking_ref = self._bookings.document(booking.id)
 
@@ -102,8 +125,19 @@ class FirestoreBookingRepository:
                 raise ConcurrentModificationError(booking.id)
             transaction.set(booking_ref, _encode(booking, version=booking.version + 1))
 
-        write(self._client.transaction())
+        try:
+            write(self._client.transaction())
+        except ValueError as exc:
+            if not _gave_up_on_contention(exc):
+                raise
+            raise ConcurrentModificationError(booking.id) from exc
         booking.version += 1
+
+
+def _gave_up_on_contention(exc: ValueError) -> bool:
+    # The client retries a transaction others keep aborting, then gives up with a ValueError
+    # caused by the last Aborted (seen on the emulator: of 12 writers to one document, 1 wins).
+    return isinstance(exc.__cause__, Aborted)
 
 
 def _key_id(key: str) -> str:
@@ -141,6 +175,9 @@ def _encode(booking: Booking, *, version: int) -> dict[str, Any]:
         "order_ids": [a.order_id for a in booking.attempts],
         "paid_at": booking.paid_at,
         "review_reason": booking.review_reason,
+        "unsent_notices": [_encode_notice(n) for n in booking.unsent_notices],
+        # For with_unsent_notices: an equality filter on a scalar needs no composite index.
+        "has_unsent_notices": bool(booking.unsent_notices),
         "version": version,
         "expire_at": booking.discard_after,
     }
@@ -166,8 +203,17 @@ def _decode(booking_id: BookingId, data: dict[str, Any]) -> Booking:
         attempts=[_decode_attempt(a) for a in data["attempts"]],
         paid_at=_utc_or_none(data["paid_at"]),
         review_reason=data["review_reason"],
+        unsent_notices=[_decode_notice(n) for n in data["unsent_notices"]],
         version=data["version"],
     )
+
+
+def _encode_notice(notice: OwnerNotice) -> dict[str, Any]:
+    return {"kind": notice.kind.value, "at": notice.at, "reason": notice.reason}
+
+
+def _decode_notice(data: dict[str, Any]) -> OwnerNotice:
+    return OwnerNotice(NoticeKind(data["kind"]), _utc(data["at"]), data["reason"])
 
 
 def _encode_attempt(attempt: PaymentAttempt) -> dict[str, Any]:

@@ -10,11 +10,11 @@ import logging
 import threading
 from datetime import datetime, timedelta
 
+from ritis_api.app.deliver_notices import DeliverNotices
 from ritis_api.app.runtime import Clock
 from ritis_api.domain.booking import Booking, BookingStatus
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.payment import PaymentAttempt
-from ritis_api.ports.notifications import Notifier
 from ritis_api.ports.payments import PaymentProvider, PaymentProviderError
 from ritis_api.ports.storage import BookingRepository, ConcurrentModificationError
 
@@ -33,13 +33,13 @@ class ConfirmPayment:
         *,
         repository: BookingRepository,
         provider: PaymentProvider,
-        notifier: Notifier,
+        notices: DeliverNotices,
         clock: Clock,
         recheck_interval: timedelta,
     ) -> None:
         self._repository = repository
         self._provider = provider
-        self._notifier = notifier
+        self._notices = notices
         self._clock = clock
         self._rechecks = _RecheckGate(clock, recheck_interval)
 
@@ -75,7 +75,6 @@ class ConfirmPayment:
     def _settle(self, booking: Booking, order_id: OrderId) -> Booking:
         report = self._provider.report(order_id)
         for _ in range(self._SAVE_ATTEMPTS):
-            before = (booking.status, booking.review_reason)
             if not booking.apply_report(order_id, report, self._clock()):
                 return booking
             try:
@@ -84,20 +83,9 @@ class ConfirmPayment:
                 # Someone else changed the booking; apply the same report to their version.
                 booking = self._repository.get(booking.id)
                 continue
-            self._announce(*before, booking)
-            return booking
+            # The change and its notices are stored together; delivery comes after.
+            return self._notices.deliver(booking)
         raise ConcurrentModificationError(booking.id)
-
-    def _announce(self, status: BookingStatus, reason: str | None, booking: Booking) -> None:
-        # A failed notification must not undo a recorded payment. Guaranteed delivery (an
-        # outbox) arrives with the Telegram notifier.
-        try:
-            if booking.status is BookingStatus.PAID and status is not BookingStatus.PAID:
-                self._notifier.booking_paid(booking)
-            elif booking.status is BookingStatus.NEEDS_REVIEW and booking.review_reason != reason:
-                self._notifier.booking_needs_review(booking)
-        except Exception:
-            log.exception("notification failed for booking %s", booking.id)
 
 
 class _RecheckGate:

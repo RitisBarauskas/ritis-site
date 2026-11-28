@@ -7,10 +7,12 @@ import pytest
 from ritis_api.adapters.memory import InMemoryBookingRepository
 from ritis_api.app.catalog import Catalog, Offer
 from ritis_api.app.confirm_payment import ConfirmPayment
+from ritis_api.app.deliver_notices import DeliverNotices
 from ritis_api.app.open_booking import CheckoutSettings, OpenBooking, StartBooking
 from ritis_api.domain.booking import Booking, BookingFormat, Customer, Language
 from ritis_api.domain.identifiers import OrderId
 from ritis_api.domain.money import Currency, Money
+from ritis_api.ports.notifications import Notifier
 from ritis_api.ports.storage import BookingRepository
 from tests.fakes import Clock, FakeProvider, Ids, RecordingNotifier
 
@@ -71,13 +73,13 @@ def open_booking(
 def make_confirm_payment(
     repository: BookingRepository,
     provider: FakeProvider,
-    notifier: RecordingNotifier,
+    notifier: Notifier,
     clock: Clock,
 ) -> ConfirmPayment:
     return ConfirmPayment(
         repository=repository,
         provider=provider,
-        notifier=notifier,
+        notices=DeliverNotices(repository=repository, notifier=notifier),
         clock=clock,
         recheck_interval=RECHECK,
     )

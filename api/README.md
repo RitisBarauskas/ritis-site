@@ -48,6 +48,12 @@ uv run python scripts/check_mutations.py   # every key rule, broken, must fail i
 uv run pytest -m live                      # against Flitt's test merchant, over the network
 ```
 
+## Owner notices
+
+A payment, and each new flag for a human, is recorded by the booking itself as a notice, in the same write as the change; a notice leaves the booking only after the messenger took it, so it is delivered at least once and never lost. Delivery is tried right after the change; a Cloud Scheduler job calls `POST /api/internal/notices` with `Authorization: Bearer <RITIS_SWEEP_TOKEN>` every ten minutes to deliver what a down messenger left. A failing messenger, or a bug in it, never fails the request that recorded the money.
+
+The messenger is Telegram (`RITIS_TELEGRAM_BOT_TOKEN`, `RITIS_TELEGRAM_CHAT_ID`); without them, locally, the log. A message carries the booking number, format, price, name and contact, as the privacy policy lists, never the description of the task. The bot token is part of Telegram's URL: httpx's request log is silenced and errors carry no URL. On Cloud Run the API refuses to start without Firestore, Telegram and the sweep token.
+
 ## Storage
 
 A booking is one Firestore document in `bookings/{id}`, its payment attempts included; an idempotency key owns a document in `idempotency_keys/{sha256 of the key}`, created in the same transaction, since Firestore has no unique index. A save is a transaction that checks the version it read. A booking nobody paid for, and its key, carry `expire_at` (30 days after the booking, as the privacy policy states); Firestore's TTL policy on that field deletes them. A booking that took any money has no `expire_at` and stays.

@@ -360,7 +360,7 @@ const ru = {
     country: 'Грузия',
     requisites: {
       seller: 'Исполнитель',
-      registryId: 'Регистрационный номер',
+      registryId: 'Идентификационный номер',
       country: 'Страна регистрации',
       email: 'Электронная почта',
     },

@@ -1,10 +1,13 @@
 ---
+import { contentIn } from '../../i18n/content';
 import Legal from '../../layouts/Legal.astro';
 import { links, merchant } from '../../site.config';
+
+const { merchantName } = contentIn('ka').legal;
 ---
 <Legal title="კონფიდენციალურობის პოლიტიკა" description="რა მონაცემებს აგროვებს ritis.dev, რატომ და როგორ ეპყრობა მათ." revised="2026-11-27">
   <h2>ვინ ამუშავებს მონაცემებს</h2>
-  <p>ინდივიდუალური მეწარმე რიტის ბარაუსკასი ({merchant.nameLatin}), საქართველო, საიდენტიფიკაციო კოდი {merchant.registryId} — შემსრულებელი <a href="/ka/offer/">საჯარო ოფერტის</a> მიხედვით, შემდგომში „ჩვენ“. კითხვები მონაცემების შესახებ — მისამართზე <a href={`mailto:${links.email}`}>{links.email}</a>.</p>
+  <p>{merchantName} ({merchant.nameLatin}), საქართველო, საიდენტიფიკაციო ნომერი {merchant.registryId} — შემსრულებელი <a href="/ka/offer/">საჯარო ოფერტის</a> მიხედვით, შემდგომში „ჩვენ“. კითხვები მონაცემების შესახებ — მისამართზე <a href={`mailto:${links.email}`}>{links.email}</a>.</p>
 
   <h2>რა მონაცემებს ვიღებთ</h2>
   <ul>

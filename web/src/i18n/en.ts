@@ -347,7 +347,7 @@ Don’t discuss style, types or names. If a point is fine, say so — don’t ma
     country: 'Georgia',
     requisites: {
       seller: 'Contractor',
-      registryId: 'Registration number',
+      registryId: 'Identification number',
       country: 'Country of registration',
       email: 'Email',
     },

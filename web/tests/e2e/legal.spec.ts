@@ -7,9 +7,9 @@ import { expect, test } from './fixtures';
 // of the offer: set offer_revision in shared/catalog.json to the publication date, then update
 // the hash of every language whose text changed.
 const OFFER_TEXT_SHA256: Record<string, string> = {
-  ru: 'd22675ab8f28351fe2a36b2f2623f4a9e8077f198e3e03da18422c13e8d82347',
-  ka: '1b1a8df996fc22dd01e59760193148910ffebe7a1a9729ae269e8fabdd2fd1d6',
-  en: '33bda4dd86f376fad66c0408c83f1782b9c87ac0d447200ecba02eb976c1b14e',
+  ru: '3016ac000ceafc2d4de457be3c407e18f41f7987b8aedd5ba43523da111a83ed',
+  ka: 'cf98ff653fa1398fcc215721d7dc484232f2090170e0700c147bc3e60b06b221',
+  en: '1c3c47ecacb7a061dd12c95af548703c95ffe85aad5209a917fe582b96498380',
 };
 
 const NBSP = String.fromCharCode(0xa0);

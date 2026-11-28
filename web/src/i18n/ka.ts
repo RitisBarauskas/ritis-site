@@ -33,7 +33,7 @@ const ka: Content = {
     cta: 'მინდა შედეგი და არა ფასადი',
     ctaAsk: 'როგორ ვმუშაობ AI-სთან ↓',
     micro: 'ვიდეოზარი Google Meet-ში · შედეგი — თქვენს რეპოზიტორიაში · რუსულად ან ცუდ ინგლისურად',
-    photoAlt: 'რიტის ბარაუსკასი',
+    photoAlt: 'რიტის ბარაუსკას',
     stickerHtml: 'ასე ვუყურებ ფრაზას&nbsp;„AI-მ თქვა, რომ ყველაფერი&nbsp;რიგზეა“',
   },
   facts: [
@@ -254,7 +254,7 @@ const ka: Content = {
     ],
   },
   about: {
-    photoAlt: 'რიტის ბარაუსკასი',
+    photoAlt: 'რიტის ბარაუსკას',
     label: 'ჩემ შესახებ',
     title: 'გამარჯობა, მე რიტისი ვარ',
     parasHtml: [
@@ -345,12 +345,12 @@ const ka: Content = {
   },
   legal: {
     revised: (date: string) => `რედაქცია: ${date}`,
-    merchantName: 'ინდივიდუალური მეწარმე რიტის ბარაუსკასი',
+    merchantName: 'ინდივიდუალური მეწარმე რიტის ბარაუსკას',
     registry: 'საჯარო რეესტრის ეროვნული სააგენტო',
     country: 'საქართველო',
     requisites: {
       seller: 'შემსრულებელი',
-      registryId: 'საიდენტიფიკაციო კოდი',
+      registryId: 'საიდენტიფიკაციო ნომერი',
       country: 'რეგისტრაციის ქვეყანა',
       email: 'ელფოსტა',
     },

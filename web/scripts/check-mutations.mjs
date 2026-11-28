@@ -108,6 +108,7 @@ const MUTATIONS = [
   M(LOCALES, "locale === DEFAULT_LOCALE ? path : `/${locale}${path}`;", 'path;', 'внутренние ссылки ведут на существующие страницы'),
   M(LOCALES, String.raw`return pathname.replace(/^\/[^/]+/, '') || '/';`, 'return pathname;', 'переключатель языка ведёт на ту же страницу'),
   M(HEADER, 'link.href = link.pathname + window.location.search + window.location.hash;', 'link.href = link.pathname;', 'переключатель языка ведёт на ту же страницу'),
+  M(HEADER, "for (const a of document.querySelectorAll('[data-lang-switch]')) a.href = a.pathname + location.search + location.hash;", '', 'переключатель языка сохраняет параметры, даже пока скрипты'),
   M(HEADER, "aria-current={l === locale ? 'page' : undefined}", 'aria-current={undefined}', 'переключатель языка отмечает текущий язык'),
   M(HEADER, '.langs{display:flex;gap:2px;', '.langs{display:flex;flex-direction:column;gap:2px;', 'шапка на ширине'),
   M(BASE, '<html lang={locale} data-theme="dark">', '<html lang="ru" data-theme="dark">', 'страницы [en] /en/: объявляет свой язык'),

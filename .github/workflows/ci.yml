@@ -132,12 +132,40 @@ jobs:
       - name: Tests catch broken rules
         run: uv run python scripts/check_mutations.py
 
+  # The cloud side as code: Terraform must parse and validate, and the API image must build.
+  infra:
+    name: infra
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Only GitHub-owned actions are allowed, so Terraform comes from HashiCorp's releases,
+      # checked against the published checksum.
+      - name: Install Terraform 1.15.1
+        run: |
+          curl -fsSLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.15.1/terraform_1.15.1_linux_amd64.zip
+          echo "0921fee8c8435253ca49390a02109e906042e611a4e17f69e922261f5176c74f  /tmp/terraform.zip" | sha256sum -c -
+          sudo unzip -o -q /tmp/terraform.zip terraform -d /usr/local/bin
+
+      - name: Terraform format and validate
+        working-directory: infra
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: API image builds
+        run: docker build -f api/Dockerfile -t ritis-api:ci .
+
   # The one check main requires. A new job only needs adding to `needs`: any failed, cancelled
   # or skipped job turns this red.
   ci-ok:
     name: CI ok
     if: always()
-    needs: [web, web-mutations, api]
+    needs: [web, web-mutations, api, infra]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

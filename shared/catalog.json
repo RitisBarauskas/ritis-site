@@ -1,9 +1,41 @@
 {
-  "currency": "EUR",
-  "call": { "amount_minor": 20000 },
-  "packages": {
-    "foundation": { "from_minor": 200000 },
-    "checkup": { "from_minor": 50000 },
-    "support": { "from_minor": 100000, "per": "month" }
+  "currency": "GEL",
+  "offer_revision": "2026-11-27",
+  "formats": {
+    "start": {
+      "price_minor": 60000,
+      "description": {
+        "ru": "ritis.dev — Технический старт: репозиторий под вашу задачу",
+        "ka": "ritis.dev — ტექნიკური სტარტი: რეპოზიტორია თქვენი ამოცანისთვის",
+        "en": "ritis.dev — Technical start: a repository for your task"
+      }
+    },
+    "launch": {
+      "price_minor": 150000,
+      "description": {
+        "ru": "ritis.dev — Подготовка к запуску: исправления в вашем репозитории",
+        "ka": "ritis.dev — გაშვებისთვის მომზადება: შესწორებები თქვენს რეპოზიტორიაში",
+        "en": "ritis.dev — Launch preparation: fixes in your repository"
+      }
+    },
+    "foundation": {
+      "starts_with": "start",
+      "from_minor": 600000,
+      "description": {
+        "ru": "ritis.dev — Технический старт, первый этап «Фундамента»",
+        "ka": "ritis.dev — ტექნიკური სტარტი, „ფუნდამენტის“ პირველი ეტაპი",
+        "en": "ritis.dev — Technical start, the first stage of the Foundation"
+      }
+    },
+    "subscription": {
+      "starts_with": "start",
+      "from_minor": 300000,
+      "per": "month",
+      "description": {
+        "ru": "ritis.dev — Технический старт, первый этап разработки по подписке",
+        "ka": "ritis.dev — ტექნიკური სტარტი, გამოწერით შემუშავების პირველი ეტაპი",
+        "en": "ritis.dev — Technical start, the first stage of the development subscription"
+      }
+    }
   }
 }

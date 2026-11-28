@@ -285,9 +285,52 @@ MUTATIONS = [
     ),
     M(
         "app/open_booking.py",
-        "!= (command.booking_format, command.customer)",
-        "!= (booking.format, booking.customer)",
+        "asked = (command.booking_format, command.customer, command.language)",
+        "asked = (booking.format, booking.customer, booking.language)",
         "test_a_key_reused_for_another_request_is_refused",
+    ),
+    M(
+        "app/open_booking.py",
+        "asked = (command.booking_format, command.customer, command.language)",
+        "asked = (command.booking_format, command.customer, booking.language)",
+        "test_a_key_reused_in_another_language_is_refused",
+    ),
+    # The customer's language: the checkout, its description and the way back follow it.
+    M(
+        "app/open_booking.py",
+        "language=booking.language.value,",
+        'language="ru",',
+        "test_the_checkout_speaks_the_language_the_customer_booked_in",
+    ),
+    M(
+        "app/open_booking.py",
+        "description=self._catalog.offer(booking.format).description(booking.language),",
+        "description=self._catalog.offer(booking.format).description(Language.RU),",
+        "test_the_checkout_speaks_the_language_the_customer_booked_in",
+    ),
+    M(
+        "app/open_booking.py",
+        "language=command.language,",
+        "language=Language.RU,",
+        "test_the_checkout_speaks_the_language_the_customer_booked_in",
+    ),
+    M(
+        "http/flitt.py",
+        "language = Language(lang) if lang in set(Language) else Language.RU",
+        "language = Language.RU",
+        "test_the_customer_comes_back_to_the_booking_page_in_their_language",
+    ),
+    M(
+        "http/flitt.py",
+        '?booking={{booking_id}}&lang={{language}}",',
+        '?booking={{booking_id}}",',
+        "test_the_customer_comes_back_to_the_booking_page_in_their_language",
+    ),
+    M(
+        "app/catalog.py",
+        "missing = set(Language) - set(self.description)",
+        "missing: set[Language] = set()",
+        "test_rejects_a_broken_catalog and no_georgian_description",
     ),
     # Wiring of Flitt's inbound path.
     M(
@@ -314,6 +357,43 @@ MUTATIONS = [
         "if False:",
         "test_a_misspelt_environment_variable_stops_the_start",
     ),
+    # Each format is booked at its own price and reads as itself at the provider.
+    M(
+        "app/open_booking.py",
+        "price=self._catalog.offer(command.booking_format).price,",
+        "price=next(iter(self._catalog.offers.values())).price,",
+        "test_charges_and_names_the_format_that_was_booked",
+    ),
+    M(
+        "app/open_booking.py",
+        "description=self._catalog.offer(booking.format).description(booking.language),",
+        "description=next(iter(self._catalog.offers.values())).description(booking.language),",
+        "test_charges_and_names_the_format_that_was_booked",
+    ),
+    M(
+        "app/catalog.py",
+        "own[entry.starts_with or booking_format]",
+        "entry.from_minor or own[booking_format]",
+        "test_a_package_is_booked_at_the_price_of_the_format_it_starts_with",
+    ),
+    M(
+        "app/catalog.py",
+        "if (self.price_minor is None) == (self.starts_with is None):",
+        "if False:",
+        "test_rejects_a_broken_catalog and (both_prices or no_price)",
+    ),
+    M(
+        "app/catalog.py",
+        "missing = set(BookingFormat) - set(self.formats)",
+        "missing: set[BookingFormat] = set()",
+        "test_rejects_a_broken_catalog and drop_format",
+    ),
+    M(
+        "app/catalog.py",
+        "and self.formats[entry.starts_with].price_minor is None",
+        "and False",
+        "test_rejects_a_broken_catalog and starts_with_a_package",
+    ),
     # HTTP edges.
     M(
         "http/flitt.py",
@@ -338,6 +418,18 @@ MUTATIONS = [
         'raise ValueError("the policies must be accepted before paying")',
         "pass",
         "no-consent",
+    ),
+    M(
+        "http/schemas.py",
+        'raise ValueError("work starts right after payment, and the customer must ask for it")',
+        "pass",
+        "no-start-request",
+    ),
+    M(
+        "app/open_booking.py",
+        "offer_revision=self._catalog.offer_revision,",
+        "offer_revision=self._catalog.offer_revision.replace(year=2000),",
+        "test_records_which_revision_of_the_offer_the_customer_accepted",
     ),
     M("http/schemas.py", 'raise ValueError("rejected")', "pass", "honeypot"),
     M(

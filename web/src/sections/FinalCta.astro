@@ -1,8 +1,13 @@
+---
+import { pageContent } from '../i18n/content';
+
+const t = pageContent(Astro.url).final;
+---
 <section class="final">
   <div class="wrap">
-    <h2>Покажите идею или прототип. Через час будете знать, что делать дальше.</h2>
+    <h2>{t.title}</h2>
     <div class="cta-row">
-      <a href="#book" class="btn btn-primary" data-book="session">Обсудить мой проект</a>
+      <a href="#book" class="btn btn-primary" data-book="start">{t.cta}</a>
     </div>
   </div>
 </section>

@@ -54,6 +54,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # As in the api job: each rule of the booking flow is broken in turn and its own tests must
+  # fail. A job of its own, since a fresh build per mutant takes minutes; one Node version is
+  # enough, as the question is about the tests.
+  web-mutations:
+    name: web (tests catch broken rules)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run mutations
+
   api:
     name: api
     runs-on: ubuntu-24.04
@@ -92,7 +117,7 @@ jobs:
   ci-ok:
     name: CI ok
     if: always()
-    needs: [web, api]
+    needs: [web, web-mutations, api]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

@@ -1,12 +1,14 @@
 ---
 import '@fontsource-variable/manrope';
 import '@fontsource-variable/jetbrains-mono';
+import '@fontsource-variable/noto-sans-georgian';
 import '../styles/tokens.css';
 import '../styles/base.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import BookingDialog from '../components/BookingDialog.astro';
-import { demoBadge } from '../site.config';
+import { contentIn } from '../i18n/content';
+import { DEFAULT_LOCALE, LOCALES, localeOfUrl, localized, withoutLocale, type Locale } from '../i18n/locales';
 
 interface Props {
   title: string;
@@ -14,14 +16,21 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+const locale = localeOfUrl(Astro.url);
+const t = contentIn(locale);
+const path = withoutLocale(Astro.url.pathname);
+// The same page in every language, for search engines; x-default is the one without a prefix.
+const alternate = (l: Locale) => new URL(localized(l, path), Astro.site).href;
 ---
 <!doctype html>
-<html lang="ru" data-theme="dark">
+<html lang={locale} data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title}</title>
 <meta name="description" content={description}>
+{LOCALES.map((l) => <link rel="alternate" hreflang={l} href={alternate(l)}>)}
+<link rel="alternate" hreflang="x-default" href={alternate(DEFAULT_LOCALE)}>
 {/* Runs before first paint so a visitor who chose the light theme never sees a dark flash. */}
 <script is:inline>
   try { if (localStorage.getItem('ritis-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (_) {}
@@ -36,8 +45,8 @@ const { title, description } = Astro.props;
 <BookingDialog />
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="mbar"><a href="#book" class="btn btn-primary" data-book="session">Ритис, глянь проект</a></div>
-<div class="proto">{demoBadge}</div>
+<div class="mbar"><a href="#book" class="btn btn-primary" data-book="start">{t.nav.cta}</a></div>
+<div class="proto">{t.badge}</div>
 </body>
 </html>
 

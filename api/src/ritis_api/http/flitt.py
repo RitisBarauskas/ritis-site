@@ -13,6 +13,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from ritis_api.adapters.flitt import FlittNotifications, InvalidNotificationError
 from ritis_api.app.confirm_payment import ConfirmPayment, UnknownOrderError
 from ritis_api.app.open_booking import CheckoutSettings
+from ritis_api.domain.booking import Language
 from ritis_api.http.schemas import BOOKING_ID_PATTERN
 
 log = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ RETURN_PATH = "/api/payments/flitt/return"
 def flitt_checkout_settings(api_base_url: str, *, lifetime_seconds: int) -> CheckoutSettings:
     """The URLs Flitt is given, built from the very paths the routes below are served at."""
     return CheckoutSettings(
-        return_url_template=f"{api_base_url}{RETURN_PATH}?booking={{booking_id}}",
+        return_url_template=f"{api_base_url}{RETURN_PATH}?booking={{booking_id}}&lang={{language}}",
         notification_url=f"{api_base_url}{NOTIFICATION_PATH}",
         lifetime_seconds=lifetime_seconds,
     )
@@ -34,7 +35,13 @@ def flitt_router(
     notifications: FlittNotifications, confirm_payment: ConfirmPayment, site_url: str
 ) -> APIRouter:
     router = APIRouter()
-    booking_page = f"{site_url.rstrip('/')}/booking/"
+    site = site_url.rstrip("/")
+
+    def booking_page(lang: str | None) -> str:
+        # The site's own scheme: Russian at the root, every other language under its code. Only
+        # a known language picks the path, so the query cannot send the customer anywhere else.
+        language = Language(lang) if lang in set(Language) else Language.RU
+        return f"{site}/booking/" if language is Language.RU else f"{site}/{language}/booking/"
 
     @router.post(NOTIFICATION_PATH)
     def notification(payload: Annotated[dict[str, Any], Body()]) -> PlainTextResponse:
@@ -54,9 +61,11 @@ def flitt_router(
     # Flitt sends the customer back with a browser form POST carrying the order fields. Nothing
     # in it is trusted or read, and nothing is checked here: the booking page asks the API.
     @router.api_route(RETURN_PATH, methods=["GET", "POST"])
-    def customer_return(booking: Annotated[str | None, Query()] = None) -> RedirectResponse:
+    def customer_return(
+        booking: Annotated[str | None, Query()] = None, lang: Annotated[str | None, Query()] = None
+    ) -> RedirectResponse:
         valid = booking is not None and re.fullmatch(BOOKING_ID_PATTERN, booking)
         query = {"id": booking} if valid else {"error": "not_found"}
-        return RedirectResponse(f"{booking_page}?{urlencode(query)}", status_code=303)
+        return RedirectResponse(f"{booking_page(lang)}?{urlencode(query)}", status_code=303)
 
     return router

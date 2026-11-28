@@ -1,19 +1,61 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
+from ritis_api.app.catalog import Catalog, Offer
 from ritis_api.app.confirm_payment import ConfirmPayment
 from ritis_api.app.open_booking import IdempotencyKeyReusedError, OpenBooking
-from ritis_api.domain.booking import BookingStatus
+from ritis_api.domain.booking import BookingFormat, BookingStatus, Language
 from ritis_api.domain.errors import BookingError
+from ritis_api.domain.money import Currency, Money
 from ritis_api.domain.payment import AttemptStatus
 from ritis_api.ports.payments import PaymentProviderError
 from tests.conftest import PRICE, make_open_booking, order_of, start_command
 from tests.fakes import Clock, FakeProvider, RacingRepository
 
 
-def test_opens_a_checkout_for_the_call_price(
+def test_charges_and_names_the_format_that_was_booked(
+    repository: InMemoryBookingRepository, provider: FakeProvider, clock: Clock
+) -> None:
+    def named(text: str) -> dict[Language, str]:
+        return {lang: f"{text} [{lang}]" for lang in Language}
+
+    catalog = Catalog(
+        {
+            BookingFormat.START: Offer(Money(20000, Currency.EUR), named("старт")),
+            BookingFormat.LAUNCH: Offer(Money(50000, Currency.EUR), named("запуск")),
+            BookingFormat.FOUNDATION: Offer(Money(20000, Currency.EUR), named("фундамент")),
+            BookingFormat.SUBSCRIPTION: Offer(Money(20000, Currency.EUR), named("подписка")),
+        },
+        date(2026, 11, 27),
+    )
+    open_booking = make_open_booking(repository, provider, clock, catalog=catalog)
+
+    booking = open_booking.start(start_command(booking_format=BookingFormat.LAUNCH))
+
+    (request,) = provider.checkout_requests
+    assert (request.amount, request.description) == (Money(50000, Currency.EUR), "запуск [ru]")
+    assert booking.price == Money(50000, Currency.EUR)
+
+
+def test_records_which_revision_of_the_offer_the_customer_accepted(
+    repository: InMemoryBookingRepository, provider: FakeProvider, clock: Clock
+) -> None:
+    catalog = Catalog(
+        {fmt: Offer(PRICE, dict.fromkeys(Language, "ritis.dev")) for fmt in BookingFormat},
+        date(2027, 2, 1),
+    )
+    open_booking = make_open_booking(repository, provider, clock, catalog=catalog)
+
+    booking = open_booking.start(start_command())
+
+    assert repository.get(booking.id).offer_revision == date(2027, 2, 1)
+
+
+def test_opens_a_checkout_for_the_booked_price(
     open_booking: OpenBooking, provider: FakeProvider
 ) -> None:
     booking = open_booking.start(start_command())
@@ -24,7 +66,7 @@ def test_opens_a_checkout_for_the_call_price(
     assert booking.current_attempt.provider == provider.name
     (request,) = provider.checkout_requests
     assert request.amount == PRICE
-    assert request.return_url == f"https://api.example/return?booking={booking.id}"
+    assert request.return_url == f"https://api.example/return?booking={booking.id}&lang=ru"
     assert request.notification_url == "https://api.example/notify"
     assert request.customer_email == "client@example.com"
 
@@ -52,6 +94,28 @@ def test_a_key_reused_for_another_request_is_refused(
     with pytest.raises(IdempotencyKeyReusedError):
         open_booking.start(start_command(contact="typo-fixed@example.com"))
     assert len(provider.checkout_requests) == 1
+
+
+def test_a_key_reused_in_another_language_is_refused(
+    open_booking: OpenBooking, provider: FakeProvider
+) -> None:
+    # The language picks the offer text the customer accepted: it is part of the request.
+    open_booking.start(start_command())
+    with pytest.raises(IdempotencyKeyReusedError):
+        open_booking.start(start_command(language=Language.EN))
+    assert len(provider.checkout_requests) == 1
+
+
+def test_the_checkout_speaks_the_language_the_customer_booked_in(
+    open_booking: OpenBooking, provider: FakeProvider, repository: InMemoryBookingRepository
+) -> None:
+    booking = open_booking.start(start_command(language=Language.KA))
+
+    (request,) = provider.checkout_requests
+    assert request.language == "ka"
+    assert request.description == "ritis.dev — foundation [ka]"
+    assert request.return_url == f"https://api.example/return?booking={booking.id}&lang=ka"
+    assert repository.get(booking.id).language is Language.KA
 
 
 def test_after_a_provider_failure_the_repeat_opens_a_fresh_order(

@@ -1,0 +1,97 @@
+---
+import { contentIn } from '../../i18n/content';
+import Legal from '../../layouts/Legal.astro';
+import { links, offerRevision, pricesIn } from '../../site.config';
+import Requisites from '../Requisites.astro';
+import RefundTerms from './RefundTerms.astro';
+
+const prices = pricesIn('en');
+const { merchantName } = contentIn('en').legal;
+---
+<Legal
+  title="Public offer"
+  description="The terms of the software development contract with ritis.dev."
+  revised={offerRevision}
+>
+  <p>A contract for software development.</p>
+
+  <h2>1. What this document is</h2>
+  <p>1.1. This is a public offer: a proposal by {merchantName} (the Contractor) to conclude a software development contract on the terms below. The offer is addressed to any person with full legal capacity (the Customer).</p>
+  <p>1.2. The contract is concluded when the order is paid for on the ritis.dev website or through a payment link sent by the Contractor. By paying for the order, the Customer accepts all terms of this offer, including the <a href="/en/refund/">refund terms</a>, confirms having read the <a href="/en/privacy/">privacy policy</a>, and asks for the work to start immediately after payment.</p>
+  <p>1.3. An order is governed by the revision of the offer that the Customer accepted when booking, and a package or a subscription month by the revision stated in the Contractor’s proposal (clause 4.2); the Contractor keeps its date in the order data. A new revision applies to orders paid for after it is published on the website. The Contractor sends earlier revisions on request.</p>
+  <p>1.4. The offer is published in Georgian, English and Russian, and the texts have the same content. If they nevertheless differ, the Georgian text prevails; a Consumer Customer may also rely on the text in the language in which they placed the order.</p>
+
+  <h2>2. Definitions</h2>
+  <ul>
+    <li><b>Result</b> — the program code, configuration, rules and instructions for AI agents, tests, settings of automated checks (CI) and their documentation that the Contractor creates under the order.</li>
+    <li><b>Repository</b> — the Customer’s git repository, or one created for the Customer (on GitHub, GitLab or another service as agreed), to which the Result is delivered.</li>
+    <li><b>Format</b> — a type of work from section 4.</li>
+    <li><b>Scope of Work</b> — the requirements, the stages of work with the share of the price of each, and the way to check the Result, which the Contractor records in the Repository under clause 5.2.</li>
+    <li><b>Call</b> — a video meeting on Google Meet at which the Contractor gathers the requirements for the Result.</li>
+    <li><b>Consumer Customer</b> — an individual who orders the work mainly for personal needs rather than for business or other professional activity.</li>
+    <li><b>Working Days</b> — Monday to Friday, Tbilisi time, except public holidays in Georgia. Other periods in days are calendar days.</li>
+  </ul>
+
+  <h2>3. Subject of the contract</h2>
+  <p>3.1. The Contractor develops software in the Format the Customer has chosen and delivers the Result to the Repository, and the Customer pays for the work.</p>
+  <p>3.2. The subject of the contract is the Result. Calls and correspondence serve only to agree on the Result and are not paid for separately.</p>
+
+  <h2>4. Formats, scope of work and deadlines</h2>
+  <p>4.1. The Contractor performs the work in one of these Formats:</p>
+  <dl class="formats">
+    <dt>Technical start — {prices.start}</dt>
+    <dd>A Call and a repository for the Customer’s task: a project skeleton, rules and constraints for AI agents, CI checks, a README that describes how to continue the work. Deadline: 5 Working Days after the Call.</dd>
+    <dt>Launch preparation — {prices.launch}</dt>
+    <dd>Fixes in the Customer’s working project, as pull requests to the Repository: secrets and keys are moved out of the code, a linter, tests and security checks are set up in CI, critical bugs in payments, data and where modules meet are fixed, rules for AI agents are added. The list of fixes is the Scope of Work under clause 5.2. The Format does not guarantee that no other bugs or vulnerabilities remain in the project. Deadline: 7 Working Days after access to the Repository is received.</dd>
+    <dt>Foundation — {prices.foundation}</dt>
+    <dd>A project from idea to repository: requirements and user scenarios in the Repository, a working skeleton on the chosen stack, models and tools wired in with their cost worked out in the README, rules for AI agents, CI and the first tests, the stages of work as tasks in the Repository. Usually 2–3 weeks; the exact deadline is stated in the package proposal.</dd>
+    <dt>Development subscription — {prices.subscription}</dt>
+    <dd>Every month, development on the tasks agreed for that month: commits and pull requests to the Customer’s Repository. Communication serves to agree on the tasks and to deliver the Result.</dd>
+  </dl>
+  <p>4.2. The Foundation and the Development subscription begin with the Technical start, which is their first stage. After it, the Contractor may propose the scope, price and deadlines of the package in writing — by email or in a messenger. The package is paid for separately under this offer; the price of the Technical start counts towards its price if the Customer orders the package. Each month of the Development subscription is a separate order: it is paid for through the Contractor’s link, with no automatic charges; the price of the Technical start counts towards the payment for the first month. A package and each subscription month are paid for after the Customer, in a written reply to the proposal, confirms the scope, price and deadlines and asks for the work to start immediately after payment; in the proposal the Contractor states the date of the offer revision in force.</p>
+  <p>4.3. Launch preparation is meant for a project that mostly works. If, before the fixes start, it is clear that the project needs rework that does not fit the Format, the Contractor proposes another Format; if the Customer does not choose it, the payment is refunded in full (section 8).</p>
+  <p>4.4. A free teardown of a repository on video is not subject to this offer.</p>
+
+  <h2>5. How the work proceeds</h2>
+  <p>5.1. Within a Working Day after payment, the Contractor contacts the Customer through the contact from the booking form and arranges a Call within 5 Working Days. If none of the proposed times suits the Customer, the deadlines shift by the waiting time.</p>
+  <p>5.2. Within a Working Day after the Call, or at the start of the work if no Call is needed, the Contractor records the Scope of Work in the Repository — what will be done, the stages with the share of the price of each, and how to check the Result — and gives notice of it under clause 5.5. If the Customer proposes no changes within 2 Working Days of the notice, the Scope of Work is deemed agreed. Whether the Result conforms is judged against the Scope of Work and the description of the Format.</p>
+  <p>5.3. The Customer provides the materials and access needed for the work and answers the Contractor’s questions. The deadlines in section 4 are extended for as long as the Contractor waits for an answer, materials or access, and for as long as the Customer’s changes to the Scope of Work are being agreed.</p>
+  <p>5.4. The Customer confirms being entitled to pass the materials and access to the Contractor, and that using them for the work, including by the services under clause 9.2, does not breach the Customer’s obligations to third parties; if it does, the Customer is liable to them. The Customer grants access with the minimum rights needed and, after the Result is delivered, reissues any secrets that were in the code.</p>
+  <p>5.5. The Result is delivered to the Repository by commits, pull requests or transfer of the Repository to the Customer. The Contractor sends notices under the contract, including notices of delivery of the Result, by email if the Customer gave one, and otherwise through the contact from the booking form. The Result or a stage of it is deemed delivered when the Contractor gives notice of its delivery.</p>
+  <p>5.6. Within 5 Working Days of delivery, the Customer may report how the Result does not conform to the Scope of Work or the description of the Format. The Contractor corrects such nonconformities at no extra charge. If there are no comments, the Result is deemed accepted. Acceptance does not deprive a Consumer Customer of the right to report, within the periods set by law, defects that could not be found on acceptance. The Contractor is not liable for defects caused by changes that someone else made after delivery; this is established from the Repository history.</p>
+  <p>5.7. If, for 30 days after the Contractor’s last message, the Customer does not respond or does not grant the access needed, the Contractor sends a reminder. If there is still no response 10 days after the reminder, the Contractor may withdraw from the order and refund the payment under item 1 of section 8.</p>
+
+  <h2>6. Price and payment</h2>
+  <p>6.1. Prices are stated on the website in lari, and payment is charged in lari — by Visa or Mastercard, through the payment provider Flitt. The Contractor neither receives nor stores card data.</p>
+  <p>6.2. An order is paid for in full when booked. Months of the Development subscription are paid in advance, under clause 4.2.</p>
+  <p>6.3. If the Customer’s card is not issued in lari, the exchange rate and the conversion fee are set by the Customer’s bank.</p>
+
+  <h2>7. Rights to the Result</h2>
+  <p>7.1. Exclusive rights to the code and other materials created specifically for the Customer pass to the Customer when the paid Result is delivered. If the contract ends before the whole Result is delivered, the Customer receives the rights to the delivered stages for which the Contractor has withheld payment.</p>
+  <p>7.2. The Result may include the Contractor’s reusable materials — templates, rules for AI agents, configurations — that were not created specifically for the Customer. The rights to them stay with the Contractor; the Customer may use, modify and distribute them as part of its product, perpetually and free of charge.</p>
+  <p>7.3. Third-party open-source libraries and tools are used under their licences.</p>
+  <p>7.4. The Contractor does not show the Customer’s code and materials in public, including in videos and publications, without the Customer’s written consent.</p>
+
+  <h2 id="refund">8. Refunds</h2>
+  <RefundTerms />
+
+  <h2>9. Confidentiality</h2>
+  <p>9.1. The Contractor does not disclose the Customer’s materials, code or information about the project to third parties, except in the cases of clause 9.2 and where the law requires it.</p>
+  <p>9.2. For the work, the Contractor uses AI models and development services: repository hosting, CI. The Customer’s materials are passed to them to the extent the task needs; AI models are used on terms under which the provider does not train them on these materials. Before the Scope of Work is agreed, the Customer may name materials that must not be passed to such services; if the Format cannot be performed without them, item 3 of section 8 applies.</p>
+  <p>9.3. The Contractor uses the access received from the Customer only for the work on the order. When the work is completed, the Contractor deletes the access keys and tokens it holds and asks the Customer to revoke the access granted.</p>
+  <p>9.4. Personal data is processed under the <a href="/en/privacy/">privacy policy</a>.</p>
+
+  <h2>10. Liability</h2>
+  <p>10.1. The Contractor is responsible for the Result conforming to the Scope of Work and the description of the Format. The Contractor does not guarantee the commercial success of the Customer’s product, the absence of any bugs in it, or the operation of third-party services.</p>
+  <p>10.2. The Customer is responsible for deploying and running its product, for the data and secrets in its systems, and for compliance with laws and licences in its product.</p>
+  <p>10.3. If the Customer orders the work for business purposes, the Contractor’s liability is limited to the amount paid for the order and does not include lost profits, except in cases of intent and gross negligence. Liability to a Consumer Customer is determined by law.</p>
+  <p>10.4. The parties are not liable for failing to perform obligations because of circumstances they could neither foresee nor prevent. The deadlines are then extended for as long as those circumstances last.</p>
+
+  <h2>11. Disputes and governing law</h2>
+  <p>11.1. The contract is governed by the law of Georgia. For a Consumer Customer, this does not take away the protection given by the mandatory law of their country of residence.</p>
+  <p>11.2. The parties settle disputes by negotiation. A claim can be sent to <a href={`mailto:${links.email}`}>{links.email}</a>; the Contractor responds within 10 Working Days.</p>
+  <p>11.3. If no agreement is reached, the dispute is heard by a court of Georgia at the Contractor’s location. A Consumer Customer may also go to another court if the law gives them that right.</p>
+
+  <h2>12. Business details</h2>
+  <Requisites />
+</Legal>

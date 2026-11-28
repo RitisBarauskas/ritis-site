@@ -12,6 +12,7 @@ import httpx
 import pytest
 
 from ritis_api.adapters.flitt import FlittPaymentProvider
+from ritis_api.domain.booking import Language
 from ritis_api.domain.identifiers import OrderId
 from ritis_api.domain.money import Currency, Money
 from ritis_api.domain.payment import NotCharged, Outcome
@@ -30,17 +31,22 @@ def provider() -> FlittPaymentProvider:
     return FlittPaymentProvider.connect(http, merchant_id=TEST_MERCHANT_ID, secret_key=TEST_SECRET)
 
 
-def test_open_checkout_then_read_its_signed_status(provider: FlittPaymentProvider) -> None:
+# Flitt accepts any lang and shows an unknown one in English: only a look at the page proves
+# it speaks the language. Seen on 2026-11-27: ru, ka and en each render in their own language.
+@pytest.mark.parametrize("language", list(Language))
+def test_open_checkout_then_read_its_signed_status(
+    provider: FlittPaymentProvider, language: Language
+) -> None:
     order_id = OrderId(f"ritis-live-{uuid.uuid4().hex}")
     checkout = provider.open_checkout(
         CheckoutRequest(
             order_id=order_id,
-            amount=Money(100, Currency.EUR),
+            amount=Money(60000, Currency.GEL),
             description="ritis.dev live test",
             return_url="https://ritis.dev/api/payments/flitt/return?booking=live",
             notification_url="https://ritis.dev/api/payments/flitt/notification",
             lifetime_seconds=600,
-            language="ru",
+            language=language.value,
         )
     )
     assert checkout.checkout_url.startswith("https://pay.flitt.com/")

@@ -1,0 +1,9 @@
+---
+import Legal from '../../layouts/Legal.astro';
+import { offerRevision } from '../../site.config';
+import RefundTerms from './RefundTerms.astro';
+---
+<Legal title="თანხის დაბრუნების პირობები" description="როდის და როგორ აბრუნებს ritis.dev გადახდილ თანხას." revised={offerRevision}>
+  <p>ეს პირობები <a href="/ka/offer/#refund">საჯარო ოფერტის თანხის დაბრუნების განყოფილებაა</a>; ტერმინებს მათში იგივე მნიშვნელობა აქვს, რაც ოფერტაში.</p>
+  <RefundTerms />
+</Legal>

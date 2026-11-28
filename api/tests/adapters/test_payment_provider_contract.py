@@ -46,7 +46,7 @@ def open_order(world: World, order_id: OrderId = ORDER) -> None:
         CheckoutRequest(
             order_id=order_id,
             amount=PRICE,
-            description="call",
+            description="ritis.dev — Технический старт",
             return_url="https://ritis.dev/return",
             notification_url="https://ritis.dev/notify",
             lifetime_seconds=3600,

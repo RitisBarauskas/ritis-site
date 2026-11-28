@@ -1,12 +1,14 @@
+---
+import { pageContent } from '../i18n/content';
+
+const t = pageContent(Astro.url).process;
+---
 <section class="block">
   <div class="wrap">
-    <p class="label"><b>06</b>Как это устроено</p>
-    <h2>От записи до плана — четыре шага</h2>
+    <p class="label"><b>06</b>{t.label}</p>
+    <h2>{t.title}</h2>
     <div class="steps">
-      <div class="step"><h3>Запись и оплата</h3><p>Выбираете формат, оплачиваете и выбираете удобное время.</p></div>
-      <div class="step"><h3>Короткая анкета</h3><p>Что хотите решить, ссылки на код, макеты, документы. Изучу заранее.</p></div>
-      <div class="step"><h3>Встреча в Google Meet</h3><p>60 минут по делу, на русском или ломаном английском. Запись — если хотите.</p></div>
-      <div class="step"><h3>Резюме и план</h3><p>В течение 24 часов письменно: выводы, решения, следующие шаги.</p></div>
+      {t.steps.map((step) => <div class="step"><h3>{step.title}</h3><p>{step.text}</p></div>)}
     </div>
   </div>
 </section>

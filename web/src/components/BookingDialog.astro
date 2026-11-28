@@ -1,71 +1,175 @@
 ---
-import { prices } from '../site.config';
+import { clientText } from '../i18n/client';
+import { contentIn } from '../i18n/content';
+import { localeOfUrl, localized } from '../i18n/locales';
+import { bookingPricesIn, payments } from '../site.config';
+
+const locale = localeOfUrl(Astro.url);
+const t = contentIn(locale).dialog;
 ---
 <dialog id="book" aria-labelledby="book-title">
   <form method="dialog" id="book-form">
     <div class="dlg-head">
-      <h3 id="book-title">Обсудим ваш проект</h3>
-      <button type="button" class="icon-btn" data-close aria-label="Закрыть">✕</button>
+      <h3 id="book-title">{t.title}</h3>
+      <button type="button" class="icon-btn" data-close aria-label={t.close}>✕</button>
     </div>
     <div class="stepper" aria-hidden="true">
-      <div class="on"><i></i><span>анкета</span></div>
-      <div><i></i><span>оплата</span></div>
-      <div><i></i><span>время</span></div>
-      <div><i></i><span>Google Meet</span></div>
+      {t.steps.map((step, i) => <div class:list={{ on: i === 0 }}><i></i><span>{step}</span></div>)}
     </div>
     <div class="dlg-body">
-      <label>Что обсуждаем
-        <select name="format" id="format">
-          <option value="session">Час строгого техлида</option>
-          <option value="foundation">Фундамент: от идеи до репозитория</option>
-          <option value="checkup">Проверка перед запуском</option>
-          <option value="support">Техлид на связи</option>
-          <option value="teardown">Бесплатный разбор в ролике</option>
-        </select>
-      </label>
-      <p class="pay" id="pay" aria-live="polite"></p>
-      <label>Как вас зовут<input name="name" required></label>
-      <label>Почта или Telegram<input name="contact" required></label>
-      <label>Что хотите решить?<textarea name="about" placeholder="Пара предложений о задаче"></textarea></label>
-      <label>Ссылки (репозиторий, макеты, документы)<input name="links" placeholder="необязательно"></label>
-      <button class="btn btn-primary" type="submit" id="book-submit">Оплатить {prices.session} и выбрать время →</button>
-      <p class="dlg-note">Карта любой страны, «Мир» или СБП. После оплаты откроется календарь, ссылка на Google Meet придёт на почту.</p>
+      <!-- Disabled as a whole while a request is in flight. -->
+      <fieldset class="dlg-fields" id="book-fields">
+        <label>{t.formatLabel}
+          <select name="format" id="format">
+            {Object.entries(t.formats).map(([value, name]) => <option value={value}>{name}</option>)}
+          </select>
+        </label>
+        <p class="pay" id="pay" aria-live="polite"></p>
+        <!-- The API trims spaces: a name needs a character besides them, a contact three. -->
+        <label>{t.name}<input name="name" required maxlength="100" pattern=".*\S.*"></label>
+        <label>{t.contact}<input name="contact" required maxlength="200" pattern="\s*\S.+\S\s*"></label>
+        <label>{t.about}<textarea name="about" maxlength="2000" placeholder={t.aboutPlaceholder}></textarea></label>
+        <label>{t.links}<input name="links" maxlength="1000" placeholder={t.linksPlaceholder}></label>
+        <!-- Hidden from people; bots fill it in, and the API refuses the request. Named so that
+             autofill leaves it alone. -->
+        <div class="hp" aria-hidden="true"><label>{t.honeypot}<input name="leave_empty" tabindex="-1" autocomplete="off"></label></div>
+        <label class="consent paid-only"><input type="checkbox" name="consent" id="consent" required><span set:html={t.consentHtml(localized(locale, '/offer/'), localized(locale, '/privacy/'))}></span></label>
+        <!-- Without this request the refund terms could not keep the cost of work already done. -->
+        <label class="consent paid-only"><input type="checkbox" name="start_immediately" id="start-now" required><span set:html={t.startNowHtml(localized(locale, '/refund/'))}></span></label>
+        <p class="dlg-error" id="book-error" role="alert" hidden></p>
+        <button class="btn btn-primary" type="submit" id="book-submit">{clientText(locale).payButton(bookingPricesIn(locale).start)}</button>
+      </fieldset>
+      <p class="dlg-note">{t.note}</p>
+      {payments.testMode && <p class="dlg-test">{t.testNote}</p>}
     </div>
   </form>
 </dialog>
 
 <script>
+  import { clientText, pageLocale } from '../i18n/client';
+  import { localized } from '../i18n/locales';
+  import { BookingApi, BookingApiError, type BookingRequest } from '../scripts/booking-api';
   import { all, byId } from '../scripts/dom';
   import { toast } from '../scripts/toast';
-  import { packageAccusative, prices, type BookingFormat } from '../site.config';
+  import { bookingPricesIn, type PaidFormat } from '../site.config';
 
+  const locale = pageLocale();
+  const text = clientText(locale);
+  const prices = bookingPricesIn(locale);
   const dlg = byId('book', HTMLDialogElement);
+  const form = byId('book-form', HTMLFormElement);
   const format = byId('format', HTMLSelectElement);
   const pay = byId('pay', HTMLParagraphElement);
+  const fields = byId('book-fields', HTMLFieldSetElement);
   const submit = byId('book-submit', HTMLButtonElement);
+  const consent = byId('consent', HTMLInputElement);
+  const startNow = byId('start-now', HTMLInputElement);
+  // Rows that only a paid format needs: the free teardown accepts no offer.
+  const paidOnly = all('.paid-only', dlg).map((row) => [row, row.querySelector('input')] as const);
+  const errorText = byId('book-error', HTMLParagraphElement);
+  const api = new BookingApi();
 
+  /**
+   * One Idempotency-Key per distinct request: a retry of the same request reuses it (the API
+   * answers with the same booking), a corrected form gets a new one.
+   */
+  class RequestKeys {
+    private key = '';
+    private payload = '';
+
+    for(request: BookingRequest): string {
+      const payload = JSON.stringify(request);
+      if (payload !== this.payload) {
+        this.payload = payload;
+        this.key = crypto.randomUUID();
+      }
+      return this.key;
+    }
+  }
+
+  const keys = new RequestKeys();
   const isFree = () => format.value === 'teardown';
-  const bold = (text: string) => Object.assign(document.createElement('b'), { textContent: text });
+  const bold = (content: string) => Object.assign(document.createElement('b'), { textContent: content });
 
   function renderPay(): void {
+    for (const [row, box] of paidOnly) {
+      row.hidden = isFree();
+      if (box) box.required = !isFree();
+    }
     if (isFree()) {
-      pay.replaceChildren(bold('Бесплатно.'), ' Если репозиторий подойдёт для ролика, напишу и договоримся о разборе.');
-      submit.textContent = 'Отправить заявку →';
+      pay.replaceChildren(bold(text.free.label), text.free.text);
+      submit.textContent = text.free.submit;
       return;
     }
-    const pkg = packageAccusative[format.value as BookingFormat];
-    pay.replaceChildren(
-      bold(`К оплате: ${prices.session}`),
-      ' — звонок 60 минут в Google Meet.' + (pkg ? ` Если решим продолжить, сумма засчитается в ${pkg}.` : ''),
-    );
-    submit.textContent = `Оплатить ${prices.session} и выбрать время →`;
+    // What paying now buys: packages open with the technical start, which counts towards them.
+    const chosen = format.value as PaidFormat;
+    const price = prices[chosen];
+    pay.replaceChildren(bold(`${text.pay[chosen].label}: ${price}`), text.pay[chosen].text);
+    submit.textContent = text.payButton(price);
   }
+
+  function requestFrom(data: FormData): BookingRequest {
+    const field = (name: string) => String(data.get(name) ?? '').trim();
+    return {
+      format: format.value,
+      name: field('name'),
+      contact: field('contact'),
+      about: field('about'),
+      links: field('links'),
+      consent: consent.checked,
+      start_immediately: startNow.checked,
+      language: locale,
+      website: String(data.get('leave_empty') ?? ''),
+    };
+  }
+
+  function showError(message: string): void {
+    errorText.textContent = message;
+    errorText.hidden = false;
+  }
+
+  let pending: AbortController | null = null;
+
+  function settle(): void {
+    pending = null;
+    fields.disabled = false;
+    renderPay();
+  }
+
+  async function startPayment(): Promise<void> {
+    const request = requestFrom(new FormData(form));
+    const cancel = new AbortController();
+    pending = cancel;
+    fields.disabled = true;
+    submit.textContent = text.opening;
+    errorText.hidden = true;
+    try {
+      const booking = await api.create(request, keys.for(request), cancel.signal);
+      // No open checkout: this request is past paying (repeated after paying, say),
+      // and the booking page tells where it stands.
+      window.location.assign(booking.checkout_url ?? `${localized(locale, '/booking/')}?id=${encodeURIComponent(booking.id)}`);
+    } catch (error) {
+      settle();
+      // Cancelled by closing the dialog: the person changed their mind, nothing to report.
+      if (cancel.signal.aborted) return;
+      showError(text.failures[BookingApiError.failureOf(error)]);
+      submit.focus();
+    }
+  }
+
+  dlg.addEventListener('close', () => pending?.abort());
+  // Back from the checkout restores this page from the back/forward cache as it was left.
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    settle();
+  });
 
   format.addEventListener('change', renderPay);
   for (const trigger of all('[data-book]')) {
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
-      format.value = trigger.dataset.book ?? 'session';
+      format.value = trigger.dataset.book ?? 'start';
+      errorText.hidden = true;
       renderPay();
       dlg.showModal();
     });
@@ -74,12 +178,14 @@ import { prices } from '../site.config';
   dlg.addEventListener('click', (event) => {
     if (event.target === dlg) dlg.close();
   });
-  byId('book-form', HTMLFormElement).addEventListener('submit', (event) => {
+  form.addEventListener('submit', (event) => {
     event.preventDefault();
-    dlg.close();
-    toast(isFree()
-      ? 'Демо: заявка на разбор ушла бы мне в Telegram.'
-      : 'Демо: здесь будет оплата, а затем выбор времени в календаре.');
+    if (isFree()) {
+      dlg.close();
+      toast(text.free.toast);
+      return;
+    }
+    void startPayment();
   });
 </script>
 
@@ -94,7 +200,14 @@ dialog::backdrop{background:rgba(15,14,12,.55);backdrop-filter:blur(3px)}
 .stepper .on i{background:var(--accent)}
 .stepper span{font:500 11px/1 var(--mono);color:var(--muted)}
 .dlg-body{padding:22px 28px 28px;display:grid;gap:14px}
+.dlg-fields{border:0;margin:0;padding:0;min-width:0;display:grid;gap:14px}
 label{font-size:13px;font-weight:700;color:var(--muted);display:grid;gap:7px}
+label.consent{display:flex;gap:10px;align-items:flex-start;font-weight:500;line-height:1.45}
+label.consent input{width:auto;margin-top:2px;flex:none}
+label.consent a{color:inherit}
+.hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .pay{margin:0;background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.45}
+.dlg-error{margin:0;border:1px solid currentColor;border-radius:12px;padding:10px 14px;font-size:14px;color:var(--danger)}
 .dlg-note{font:500 12.5px/1.5 var(--mono);color:var(--muted);margin:0}
+.dlg-test{margin:0;font:600 12px/1.45 var(--mono);color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:8px 12px}
 </style>

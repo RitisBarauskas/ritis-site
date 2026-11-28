@@ -1,4 +1,4 @@
-"""A paid booking of a call: the aggregate that owns its payment attempts.
+"""A paid booking of one of the site's formats: the aggregate that owns its payment attempts.
 
 The provider is the source of truth about money. The booking records what it reports and,
 when the report contradicts the booking (another amount, another currency, a second payment,
@@ -9,7 +9,7 @@ automatically.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
 from ritis_api.domain.errors import BookingError
@@ -26,12 +26,27 @@ from ritis_api.domain.payment import (
 
 
 class BookingFormat(StrEnum):
-    """Paid formats. Every one of them starts with the same paid call."""
+    """Paid formats; what booking each one costs is in the catalog.
 
-    SESSION = "session"
+    The values are stored with bookings: renaming one is a data migration.
+    """
+
+    START = "start"
+    LAUNCH = "launch"
     FOUNDATION = "foundation"
-    CHECKUP = "checkup"
-    SUPPORT = "support"
+    SUBSCRIPTION = "subscription"
+
+
+class Language(StrEnum):
+    """The language the customer booked in: the offer they read, the checkout and the order
+    description follow it. A consumer may rely on the offer in this language (offer, 1.4).
+
+    The values are stored with bookings: renaming one is a data migration.
+    """
+
+    RU = "ru"
+    KA = "ka"
+    EN = "en"
 
 
 class BookingStatus(StrEnum):
@@ -65,6 +80,10 @@ class Booking:
     customer: Customer
     price: Money
     created_at: datetime
+    # The offer the customer accepted at created_at, asking to start work at once: what a
+    # refund or a chargeback dispute is settled by.
+    offer_revision: date
+    language: Language
     status: BookingStatus = BookingStatus.AWAITING_PAYMENT
     attempts: list[PaymentAttempt] = field(default_factory=list)
     paid_at: datetime | None = None
@@ -81,6 +100,8 @@ class Booking:
         booking_format: BookingFormat,
         customer: Customer,
         price: Money,
+        offer_revision: date,
+        language: Language,
         now: datetime,
     ) -> Booking:
         return cls(
@@ -90,6 +111,8 @@ class Booking:
             customer=customer,
             price=price,
             created_at=now,
+            offer_revision=offer_revision,
+            language=language,
         )
 
     # --- queries -------------------------------------------------------------------------

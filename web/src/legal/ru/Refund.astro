@@ -1,0 +1,9 @@
+---
+import Legal from '../../layouts/Legal.astro';
+import { offerRevision } from '../../site.config';
+import RefundTerms from './RefundTerms.astro';
+---
+<Legal title="Условия возврата" description="Когда и как ritis.dev возвращает оплату." revised={offerRevision}>
+  <p>Эти условия — <a href="/offer/#refund">раздел публичной оферты о возврате</a>; термины в них значат то же, что в оферте.</p>
+  <RefundTerms />
+</Legal>

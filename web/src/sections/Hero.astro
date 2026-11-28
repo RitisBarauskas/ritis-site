@@ -1,26 +1,28 @@
 ---
 import { Picture } from 'astro:assets';
 import hero from '../assets/img/hero.jpg';
+import { pageContent } from '../i18n/content';
 
 // object-fit:cover crops this landscape photo into a 4:5 frame, so the rendered image
 // is ~1.78× wider than the frame; sizes must describe that width, not the frame's.
 const heroSizes = '(max-width: 640px) calc((100vw - 36px) * 1.78), (max-width: 1000px) 710px, 780px';
+const t = pageContent(Astro.url).hero;
 ---
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <div class="eyebrow">Инженер и ментор · продукты с ИИ, которые не ломаются</div>
-      <h1>С ИИ как с водительскими правами. Права есть, а&nbsp;<mark>ездить</mark>&nbsp;— нет.</h1>
-      <p class="lead"><b>Я знаю не только дороги, но и ямы на них — и как устроена машина.</b> Помогу довести идею или прототип до продукта, который работает и не создаёт проблем.</p>
+      <div class="eyebrow">{t.eyebrow}</div>
+      <h1 set:html={t.titleHtml}></h1>
+      <p class="lead" set:html={t.leadHtml}></p>
       <div class="cta-row">
-        <a href="#book" class="btn btn-primary" data-book="session">Хочу ехать, а не шашечки</a>
-        <a href="#ask" class="btn btn-ghost">Как я работаю с ИИ ↓</a>
+        <a href="#book" class="btn btn-primary" data-book="start">{t.cta}</a>
+        <a href="#ask" class="btn btn-ghost">{t.ctaAsk}</a>
       </div>
-      <p class="micro">Google Meet · 60 минут · на русском или ломаном английском</p>
+      <p class="micro">{t.micro}</p>
     </div>
     <div class="portrait">
-      <div class="frame"><Picture src={hero} alt="Ритис Бараускас" formats={['avif', 'webp']} widths={[640, 960, 1280, 1600]} sizes={heroSizes} loading="eager" fetchpriority="high" /></div>
-      <div class="sticker">Так я смотрю на&nbsp;„ИИ сказал, что всё&nbsp;ок“</div>
+      <div class="frame"><Picture src={hero} alt={t.photoAlt} formats={['avif', 'webp']} widths={[640, 960, 1280, 1600]} sizes={heroSizes} loading="eager" fetchpriority="high" /></div>
+      <div class="sticker" set:html={t.stickerHtml}></div>
     </div>
   </div>
 </section>

@@ -25,6 +25,8 @@ FORM: dict[str, Any] = {
     "about": "MVP на FastAPI",
     "links": "",
     "consent": True,
+    "start_immediately": True,
+    "language": "ru",
 }
 
 

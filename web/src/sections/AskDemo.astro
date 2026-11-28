@@ -1,97 +1,75 @@
+---
+import { pageContent } from '../i18n/content';
+
+const t = pageContent(Astro.url).ask;
+---
 <section class="block" id="ask">
   <div class="wrap">
-    <p class="label"><b>02</b>Как я работаю с ИИ</p>
-    <h2>Выручай-комната открывается тому, кто знает, что&nbsp;попросить</h2>
-    <p class="sub">Помните Выручай-комнату из «Гарри Поттера»? Она появляется только тому, кто точно знает, что ему нужно. Остальные проходят мимо голой стены. С ИИ так же: модель найдёт уязвимость, если спросить правильно. Не знаешь, что искать, — не найдёшь никогда.</p>
+    <p class="label"><b>02</b>{t.label}</p>
+    <h2 set:html={t.titleHtml}></h2>
+    <p class="sub">{t.sub}</p>
     <div class="ask">
-      <div class="code" aria-label="Пример кода">
-        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span>payments/webhooks.py</span><span class="gen">написано ИИ</span></div>
+      <div class="code" aria-label={t.codeLabel}>
+        <div class="code-head"><span class="dots"><i></i><i></i><i></i></span><span>payments/webhooks.py</span><span class="gen">{t.generated}</span></div>
 <pre><span class="ln" data-n="1"><span class="t-f">@app.post</span>(<span class="t-s">"/webhooks/payment"</span>)</span><span class="ln" data-n="2"><span class="t-k">async def</span> <span class="t-f">payment_webhook</span>(event: <span class="t-t">dict</span>):</span><span class="ln" data-n="3">    order = <span class="t-k">await</span> orders.get(event[<span class="t-s">"order_id"</span>])</span><span class="ln" data-n="4">    order.paid += event[<span class="t-s">"amount"</span>]</span><span class="ln" data-n="5">    <span class="t-k">await</span> orders.save(order)</span><span class="ln" data-n="6">    <span class="t-k">return</span> &#123;<span class="t-s">"ok"</span>: <span class="t-k">True</span>&#125;</span></pre>
         <div class="code-foot"><span>✓ tests passed</span><span>✓ lint passed</span></div>
-        <div class="code-cap">Типичный обработчик оплаты, который охотно пишет ИИ. Код один и тот же — меняется только вопрос.</div>
+        <div class="code-cap">{t.codeCaption}</div>
       </div>
       <div>
-        <div class="tabs" role="tablist" aria-label="Как спросить ИИ">
-          <button type="button" role="tab" id="tab-naive" aria-controls="panel-naive" aria-selected="true">Как спрашивают обычно</button>
-          <button type="button" role="tab" id="tab-pro" aria-controls="panel-pro" aria-selected="false" tabindex="-1">Как спрашиваю я</button>
-          <button type="button" role="tab" id="tab-real" aria-controls="panel-real" aria-selected="false" tabindex="-1">Как на самом деле</button>
+        <div class="tabs" role="tablist" aria-label={t.tabsLabel}>
+          <button type="button" role="tab" id="tab-naive" aria-controls="panel-naive" aria-selected="true">{t.tabs.naive}</button>
+          <button type="button" role="tab" id="tab-pro" aria-controls="panel-pro" aria-selected="false" tabindex="-1">{t.tabs.pro}</button>
+          <button type="button" role="tab" id="tab-real" aria-controls="panel-real" aria-selected="false" tabindex="-1">{t.tabs.real}</button>
         </div>
         <div role="tabpanel" id="panel-naive" aria-labelledby="tab-naive">
-          <div class="msg you"><span class="who">вы</span><p>Проверь мой код оплаты на ошибки.</p></div>
-          <div class="msg ai"><span class="who">ИИ</span><p>Код аккуратный и хорошо читается 👍 Можно добавить аннотации типов, вынести путь "/webhooks/payment" в константу и написать docstring. Критических проблем не вижу.</p></div>
-          <p class="verdict bad">Ноль находок. Код уезжает в продакшен с дырой, через которую любой «оплатит» заказ одним запросом.</p>
+          <div class="msg you"><span class="who">{t.you}</span><p>{t.naive.question}</p></div>
+          <div class="msg ai"><span class="who">{t.ai}</span><p>{t.naive.answer}</p></div>
+          <p class="verdict bad">{t.naive.verdict}</p>
         </div>
         <div role="tabpanel" id="panel-pro" aria-labelledby="tab-pro" hidden>
-          <div class="msg you"><span class="who">я</span><p class="prompt-text">Это обработчик уведомлений об оплате. Деньги настоящие, завтра запуск.
-Проверь только это и для каждого пункта покажи строку и сценарий сбоя:
-1. Проверяется ли подпись платёжной системы до любой работы с данными?
-2. Что будет, если то же уведомление придёт дважды? Платёжки повторяют доставку.
-3. Что будет, если два уведомления по одному заказу придут одновременно?
-4. В каких единицах amount и paid? Где журнал операций?
-Стиль, типы и названия не обсуждай. Если пункт в порядке — так и скажи, не выдумывай.</p></div>
-          <div class="msg ai"><span class="who">ИИ</span><p>Нашёл четыре проблемы. Нажмите на любую — подсвечу строку.</p>
+          <div class="msg you"><span class="who">{t.me}</span><p class="prompt-text">{t.pro.prompt}</p></div>
+          <div class="msg ai"><span class="who">{t.ai}</span><p>{t.pro.intro}</p>
             <div class="findings">
-              <button class="cmt" data-lines="1-2" type="button"><span class="sev r"></span><span><span class="meta">критично · строки 1–2</span><span class="cmt-text">Подпись не проверяется. Любой может «оплатить» заказ одним POST-запросом.</span></span></button>
-              <button class="cmt" data-lines="4" type="button"><span class="sev r"></span><span><span class="meta">критично · строка 4</span><span class="cmt-text">Повторная доставка = двойное зачисление. Нужна идемпотентность по id события.</span></span></button>
-              <button class="cmt" data-lines="3-5" type="button"><span class="sev o"></span><span><span class="meta">важно · строки 3–5</span><span class="cmt-text">Гонка: два одновременных уведомления прочитают старое значение и перезапишут друг друга.</span></span></button>
-              <button class="cmt" data-lines="4" type="button"><span class="sev y"></span><span><span class="meta">стоит поправить · строка 4</span><span class="cmt-text">Единицы не сверены, журнала операций нет — потом не восстановить, что произошло с деньгами.</span></span></button>
+              {t.pro.findings.map((finding) => (
+                <button class="cmt" data-lines={finding.lines} type="button"><span class={`sev ${finding.sev}`}></span><span><span class="meta">{finding.meta}</span><span class="cmt-text">{finding.text}</span></span></button>
+              ))}
             </div>
           </div>
-          <p class="verdict good">Тот же код. Та же модель. Разница — только в вопросе.</p>
-          <button type="button" class="next" data-next="tab-real">А на самом деле я и так не спрашиваю →</button>
+          <p class="verdict good">{t.pro.verdict}</p>
+          <button type="button" class="next" data-next="tab-real">{t.pro.next}</button>
         </div>
         <div role="tabpanel" id="panel-real" aria-labelledby="tab-real" hidden>
           <div class="confess">
-            <p class="pre">Если вы дочитали до этого места</p>
-            <p><b>Скажу правду: я и так не спрашиваю.</b> Иначе моя продуктивность ушла бы ниже нуля.</p>
-            <p>Я заранее ставлю нужные ограничения, правила работы и требования к коду. В результате эти вопросы агент формулирует сам и задаёт их себе в ходе кросс-проверки.</p>
+            <p class="pre">{t.real.preface}</p>
+            <p set:html={t.real.confessHtml}></p>
+            <p>{t.real.text}</p>
           </div>
-          <p class="rules-cap">Правила проекта · задаются один раз, до первой строки кода</p>
-<pre class="rules small"><span class="c"># CLAUDE.md — фрагмент</span>
-<span class="h">## Деньги</span>
-- Баланс меняется только через журнал операций.
-- Суммы — целые числа в копейках, валюта указана явно.
-<span class="h">## Входящие уведомления</span>
-- Подпись проверяется до чтения тела.
-- Повторная доставка не меняет результат:
-  идемпотентность по id события.
-<span class="h">## Перед сдачей задачи</span>
-- Кросс-проверка: задай себе вопросы о повторах,
-  гонках и правах доступа, ответь со ссылкой на строку.
-- Нашёл нарушение правил — исправь, а не опиши.</pre>
-          <div class="msg you"><span class="who">я</span><p>Сделай обработчик уведомлений об оплате.</p></div>
-          <div class="msg ai"><span class="who">ИИ · кросс-проверка перед сдачей</span><p>Черновик слева нарушает правила проекта в четырёх местах. Исправил до сдачи:</p>
+          <p class="rules-cap">{t.real.rulesCaption}</p>
+<pre class="rules small" set:html={t.real.rulesHtml}></pre>
+          <div class="msg you"><span class="who">{t.me}</span><p>{t.real.request}</p></div>
+          <div class="msg ai"><span class="who">{t.real.aiWho}</span><p>{t.real.intro}</p>
             <div class="findings">
-              <button class="cmt" data-lines="1-2" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строки 1–2</span><span class="cmt-text">Подпись платёжной системы проверяется до чтения тела.</span></span></button>
-              <button class="cmt" data-lines="4" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строка 4</span><span class="cmt-text">Повторное уведомление с тем же id события игнорируется.</span></span></button>
-              <button class="cmt" data-lines="3-5" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строки 3–5</span><span class="cmt-text">Атомарное обновление вместо «прочитал — изменил — сохранил».</span></span></button>
-              <button class="cmt" data-lines="4" type="button"><span class="sev g"></span><span><span class="meta">исправлено · строка 4</span><span class="cmt-text">Сумма в копейках, изменение баланса — через журнал операций.</span></span></button>
+              {t.real.findings.map((finding) => (
+                <button class="cmt" data-lines={finding.lines} type="button"><span class="sev g"></span><span><span class="meta">{finding.meta}</span><span class="cmt-text">{finding.text}</span></span></button>
+              ))}
             </div>
           </div>
-          <p class="verdict good">Вопросы те же. Только задаю их не я — агент задаёт их себе сам, на каждой задаче.</p>
+          <p class="verdict good">{t.real.verdict}</p>
         </div>
       </div>
     </div>
 
-    <p class="statement">Код построчно я не вычитываю — сегодня это быстрее и внимательнее делает ИИ. Моя работа — знать, что спросить, какие ограничения поставить и какой находке верить.</p>
+    <p class="statement">{t.statement}</p>
 
-    <p class="mini-h">Почему ИИ говорит «всё отлично»</p>
+    <p class="mini-h">{t.whyTitle}</p>
     <div class="cards3 why">
-      <article class="card">
-        <span class="k">01</span>
-        <h3>Отвечает ровно на вопрос</h3>
-        <p>Спросили «есть ли ошибки» — получили список мелочей. О подписи, повторах и гонках он промолчит, пока вы о них не спросите.</p>
-      </article>
-      <article class="card">
-        <span class="k">02</span>
-        <h3>Не знает вашего контекста</h3>
-        <p>ИИ не знает, что деньги настоящие, что платёжка повторяет уведомления и что завтра придёт тысяча пользователей. Это знание ему нужно дать.</p>
-      </article>
-      <article class="card">
-        <span class="k">03</span>
-        <h3>Хочет понравиться</h3>
-        <p>Модели склонны соглашаться с собеседником и звучат уверенно, даже когда ошибаются. Без ограничений вместо проверки получите комплимент.</p>
-      </article>
+      {t.why.map((card) => (
+        <article class="card">
+          <span class="k">{card.k}</span>
+          <h3>{card.title}</h3>
+          <p>{card.text}</p>
+        </article>
+      ))}
     </div>
   </div>
 </section>

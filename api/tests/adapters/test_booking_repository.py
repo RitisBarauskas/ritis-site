@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import date
+
 import pytest
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
-from ritis_api.domain.booking import Booking, BookingFormat, Customer
+from ritis_api.domain.booking import Booking, BookingFormat, Customer, Language
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
 from ritis_api.ports.storage import (
@@ -27,13 +30,25 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
     new = Booking.new(
         booking_id=BookingId(booking_id),
         idempotency_key=key,
-        booking_format=BookingFormat.SESSION,
+        booking_format=BookingFormat.START,
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=Money(20000, Currency.EUR),
+        offer_revision=date(2026, 11, 27),
+        language=Language.KA,
         now=NOW,
     )
     new.start_attempt(OrderId("order-1"), "fake", NOW)
     return new
+
+
+def test_reads_back_what_was_stored(repository: BookingRepository) -> None:
+    # Every field counts: the accepted offer revision settles refund and chargeback disputes.
+    stored = booking()
+    repository.add(stored)
+
+    loaded = repository.get(stored.id)
+
+    assert replace(loaded, version=0) == replace(stored, version=0)
 
 
 def test_changes_are_kept_only_when_saved(repository: BookingRepository) -> None:

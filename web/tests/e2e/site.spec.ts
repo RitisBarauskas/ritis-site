@@ -1,6 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 const FAVICON = /\/favicon\.ico$/;
+const NBSP = String.fromCharCode(0xa0);
+/** The home page of each language: its layout differs with the length of its texts. */
+const HOMES: Record<string, string> = { ru: '/', ka: '/ka/', en: '/en/' };
 
 async function collectErrors(page: Page): Promise<string[]> {
   const errors: string[] = [];
@@ -13,29 +17,74 @@ async function collectErrors(page: Page): Promise<string[]> {
 }
 
 test.describe('страница', () => {
-  test('загружается без ошибок в консоли', async ({ page }) => {
-    const errors = await collectErrors(page);
+  for (const [locale, home] of Object.entries(HOMES)) {
+    test(`[${locale}] загружается без ошибок в консоли`, async ({ page }) => {
+      const errors = await collectErrors(page);
 
-    await page.goto('/', { waitUntil: 'networkidle' });
+      await page.goto(home, { waitUntil: 'networkidle' });
 
-    expect(errors).toEqual([]);
-  });
+      expect(errors).toEqual([]);
+    });
 
-  for (const width of [390, 820, 1440]) {
-    test(`не даёт горизонтальной прокрутки на ширине ${width} ни на одной вкладке демо`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await page.goto('/');
+    for (const width of [390, 820, 1024, 1440]) {
+      test(`[${locale}] не даёт горизонтальной прокрутки на ширине ${width} ни на одной вкладке демо`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(home);
 
-      // Each demo tab has different content, so each one can push the layout wider.
-      const overflowByTab: Record<string, number> = {};
-      for (const tab of await page.getByRole('tab').all()) {
-        await tab.click();
-        overflowByTab[(await tab.textContent()) ?? ''] =
-          await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        // Each demo tab has different content, so each one can push the layout wider.
+        const overflow: number[] = [];
+        for (const tab of await page.getByRole('tab').all()) {
+          await tab.click();
+          overflow.push(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth));
+        }
+
+        expect(overflow).toEqual([0, 0, 0]);
+      });
+
+      if (width === 390) {
+        test(`[${locale}] на ширине 390 текст не вылезает за свои блоки`, async ({ page }) => {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(home);
+
+          const clipped = await page.evaluate(() => {
+            const found: string[] = [];
+            // Code scrolls inside its own box; an open question's "+" turns by 45° and pokes out by design.
+            for (const el of document.querySelectorAll('header *, main *, footer *')) {
+              if (el.closest('pre, details') || el.matches('.faq') || getComputedStyle(el).overflowX !== 'visible') continue;
+              if (el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1) found.push(el.outerHTML.slice(0, 80));
+            }
+            // The questions themselves: no line of one may run past its row.
+            for (const question of document.querySelectorAll('#faq summary')) {
+              const range = document.createRange();
+              range.selectNodeContents(question);
+              const edge = question.getBoundingClientRect().right;
+              if ([...range.getClientRects()].some((line) => line.right > edge + 1)) found.push(question.outerHTML.slice(0, 80));
+            }
+            return found;
+          });
+
+          expect(clipped).toEqual([]);
+        });
       }
 
-      expect(overflowByTab).toEqual({ 'Как спрашивают обычно': 0, 'Как спрашиваю я': 0, 'Как на самом деле': 0 });
-    });
+      test(`[${locale}] шапка на ширине ${width} умещается в одну строку`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(home);
+
+        // Wrapped links or buttons stand taller than the bar or stick out of it.
+        const clipped = await page.locator('header.nav .nav-in > *:visible, header.nav .nav-in > * > *:visible').evaluateAll((all) => {
+          const bar = document.querySelector('header.nav .nav-in')!.getBoundingClientRect();
+          return all
+            .filter((el) => {
+              const box = el.getBoundingClientRect();
+              return box.top < bar.top || box.bottom > bar.bottom || box.left < bar.left - 1 || box.right > bar.right + 1;
+            })
+            .map((el) => el.outerHTML.slice(0, 60));
+        });
+
+        expect(clipped).toEqual([]);
+      });
+    }
   }
 
   test('все фото загружаются, когда до них доходит прокрутка', async ({ page }) => {
@@ -68,15 +117,28 @@ test.describe('страница', () => {
     expect(unsafe).toEqual([]);
   });
 
-  test('цены из каталога, разряды через неразрывный пробел', async ({ page }) => {
+  test('обещает только те способы оплаты, что подключены', async ({ page }) => {
     await page.goto('/');
 
-    // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
-    const prices = await page.locator('#help .price b').allTextContents();
-
-    const nbsp = String.fromCharCode(0xa0);
-    expect(prices).toEqual(['€200', `от €2${nbsp}000`, 'от €500', `от €1${nbsp}000/мес`]);
+    await expect(page.locator('.paychips span')).toHaveText(['Visa', 'Mastercard']);
+    // Not in the offers, the FAQ or the booking dialog until a Russian provider is connected.
+    const text = await page.locator('body').textContent();
+    expect(text).not.toMatch(/«Мир»|СБП/);
   });
+
+  // Raw textContent: toHaveText would normalise a non-breaking space into a plain one.
+  const PRICES: Record<string, string[]> = {
+    ru: [`600${NBSP}₾`, `от 6${NBSP}000${NBSP}₾`, `1${NBSP}500${NBSP}₾`, `от 3${NBSP}000${NBSP}₾/мес`],
+    ka: [`600${NBSP}₾`, `6${NBSP}000${NBSP}₾-დან`, `1${NBSP}500${NBSP}₾`, `3${NBSP}000${NBSP}₾-დან${NBSP}თვეში`],
+    en: ['₾600', 'from ₾6,000', '₾1,500', 'from ₾3,000/month'],
+  };
+  for (const [locale, expected] of Object.entries(PRICES)) {
+    test(`[${locale}] цены из каталога, в записи этого языка`, async ({ page }) => {
+      await page.goto(HOMES[locale]);
+
+      expect(await page.locator('#help .price b').allTextContents()).toEqual(expected);
+    });
+  }
 });
 
 test.describe('тема', () => {
@@ -161,12 +223,12 @@ test.describe('демо «Как я работаю с ИИ»', () => {
   });
 });
 
-test.describe('окно брони (заглушка)', () => {
+test.describe('окно брони', () => {
   const triggers: Array<[string, string]> = [
-    ['session', 'Час строгого техлида'],
+    ['start', 'Технический старт'],
     ['foundation', 'Фундамент: от идеи до репозитория'],
-    ['checkup', 'Проверка перед запуском'],
-    ['support', 'Техлид на связи'],
+    ['launch', 'Подготовка к запуску'],
+    ['subscription', 'Разработка по подписке'],
     ['teardown', 'Бесплатный разбор в ролике'],
   ];
 
@@ -180,13 +242,23 @@ test.describe('окно брони (заглушка)', () => {
     });
   }
 
-  test('для пакета показывает цену звонка и что она засчитается в пакет', async ({ page }) => {
-    await page.goto('/');
+  // Packages are booked as the technical start that opens them; launch preparation has its own price.
+  const charges: Array<[string, string, string]> = [
+    ['start', '600 ₾', 'К оплате: 600 ₾ — созвон по задаче, а через 5 рабочих дней после него — репозиторий под неё.'],
+    ['launch', '1 500 ₾', 'К оплате: 1 500 ₾ — исправления пулл-реквестами в вашем репозитории.'],
+    ['foundation', '600 ₾', 'К оплате сейчас: 600 ₾ — технический старт, первый этап. Сумма засчитается в «Фундамент», если вы его закажете.'],
+    ['subscription', '600 ₾', 'К оплате сейчас: 600 ₾ — технический старт, первый этап. Сумма засчитается в первый месяц разработки по подписке, если вы её закажете.'],
+  ];
+  for (const [format, price, text] of charges) {
+    test(`формат ${format}: к оплате ${price} и за что`, async ({ page }) => {
+      await page.goto('/');
 
-    await page.locator('main [data-book="foundation"]').click();
+      await page.locator(`main [data-book="${format}"]`).first().click();
 
-    await expect(page.locator('#pay')).toHaveText('К оплате: €200 — звонок 60 минут в Google Meet. Если решим продолжить, сумма засчитается в «Фундамент».');
-  });
+      await expect(page.locator('#pay')).toContainText(text);
+      await expect(page.locator('#book-submit')).toHaveText(`Оплатить ${price} →`);
+    });
+  }
 
   test('бесплатный разбор не просит оплату', async ({ page }) => {
     await page.goto('/');
@@ -196,21 +268,25 @@ test.describe('окно брони (заглушка)', () => {
     await expect(page.locator('#book-submit')).toHaveText('Отправить заявку →');
   });
 
-  test('отправка закрывает окно и показывает сообщение', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('main [data-book="session"]').first().click();
-    await page.getByLabel('Как вас зовут').fill('Тест');
-    await page.getByLabel('Почта или Telegram').fill('test@example.com');
+  for (const [locale, home] of Object.entries(HOMES)) {
+    test(`[${locale}] на ширине 390 содержимое окна не вылезает за его края`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(home);
+      await page.locator('main [data-book="foundation"]').first().click();
 
-    await page.locator('#book-submit').click();
+      // The honeypot is squeezed to 1px on purpose.
+      const overflowing = await page.locator('#book .dlg-body *').evaluateAll((all) =>
+        all
+          .filter((el) => !el.closest('.hp') && el.scrollWidth > el.clientWidth + 1)
+          .map((el) => el.outerHTML.slice(0, 80)));
 
-    await expect(page.locator('#book')).not.toHaveAttribute('open');
-    await expect(page.locator('#toast')).toHaveText(/здесь будет оплата/);
-  });
+      expect(overflowing).toEqual([]);
+    });
+  }
 
   test('клик по затемнению вокруг окна закрывает его', async ({ page }) => {
     await page.goto('/');
-    await page.locator('main [data-book="session"]').first().click();
+    await page.locator('main [data-book="start"]').first().click();
 
     await page.mouse.click(5, 5);
 

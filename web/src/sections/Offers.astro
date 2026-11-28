@@ -1,65 +1,39 @@
 ---
-import { prices } from '../site.config';
+import { contentIn } from '../i18n/content';
+import { localeOfUrl } from '../i18n/locales';
+import { pricesIn, type PaidFormat } from '../site.config';
+
+const locale = localeOfUrl(Astro.url);
+const t = contentIn(locale).offers;
+const prices = pricesIn(locale);
+// The technical start leads: every package opens with it.
+const ORDER: PaidFormat[] = ['start', 'foundation', 'launch', 'subscription'];
 ---
 <section class="block" id="help">
   <div class="wrap">
-    <p class="label"><b>04</b>Чем помогаю</p>
-    <h2>Четыре формата работы</h2>
-    <p class="sub">Начать почти всегда стоит с часа: за него станет понятно, нужен ли вам кто-то дальше — и кто именно.</p>
+    <p class="label"><b>04</b>{t.label}</p>
+    <h2>{t.title}</h2>
+    <p class="sub">{t.sub}</p>
     <div class="offers">
-      <article class="offer featured">
-        <span class="tag acc">начать здесь</span>
-        <h3>Час строгого техлида</h3>
-        <div class="price"><b>{prices.session}</b><span>60 минут · Google Meet</span></div>
-        <p class="desc">Разберём идею, прототип, выбор моделей и инструментов или карьерный вопрос. Скажу, что хорошо, что плохо и что должно быть на выходе. Если нужно — ударю по рукам.</p>
-        <ul>
-          <li>Изучаю ваши материалы до встречи</li>
-          <li>Отвечаю прямо, без «зависит от ситуации»</li>
-          <li>Письменное резюме и следующие шаги — в течение 24 часов</li>
-        </ul>
-        <a href="#book" class="btn btn-primary" data-book="session">Выбрать время</a>
-      </article>
-      <article class="offer">
-        <span class="tag">главное</span>
-        <h3>Фундамент: от идеи до репозитория</h3>
-        <div class="price"><b>{prices.foundation}</b><span>2–3 недели</span></div>
-        <p class="desc">Готовлю проект так, чтобы дальше его можно было строить самому с ИИ-агентами или отдать любому подрядчику — и проверить его работу.</p>
-        <ul>
-          <li>Бизнес-требования и пользовательские сценарии</li>
-          <li>Техническое задание и ограничения</li>
-          <li>Архитектура и стек с обоснованием</li>
-          <li>Какие модели и инструменты на каком участке — и сколько это стоит в месяц</li>
-          <li>Репозиторий с правилами, ограничениями и требованиями к коду для ИИ-агентов, проверками и первыми тестами</li>
-          <li>Этапы, сроки, риски</li>
-        </ul>
-        <a href="#book" class="btn btn-ghost" data-book="foundation">Начать со звонка</a>
-      </article>
-      <article class="offer">
-        <h3>Проверка перед запуском</h3>
-        <div class="price"><b>{prices.checkup}</b><span>отчёт за 3–5 дней</span></div>
-        <p class="desc">Прототип уже работает? Проверю, выдержит ли он живых пользователей и настоящие деньги. Ставлю ИИ ограничения и вопросы под ваш проект, он ищет, я проверяю каждую находку и отсеиваю ложные.</p>
-        <ul>
-          <li>Безопасность, платежи, данные</li>
-          <li>Стыки модулей и архитектура</li>
-          <li>Готовность к нагрузке</li>
-          <li><span>Что чинить первым <i class="dot-r"></i> <i class="dot-o"></i> <i class="dot-y"></i> — и что будет, если не чинить</span></li>
-        </ul>
-        <a href="#book" class="btn btn-ghost" data-book="checkup">Начать со звонка</a>
-      </article>
-      <article class="offer">
-        <h3>Техлид на связи</h3>
-        <div class="price"><b>{prices.support}</b><span>для тех, кто строит сам</span></div>
-        <p class="desc">Вы строите — я держу планку: архитектура, качество, правила для ИИ-агентов. Чтобы через полгода не пришлось всё переписывать.</p>
-        <ul>
-          <li>Еженедельный созвон</li>
-          <li>Проверка ваших изменений: мои ограничения для ИИ, мой вердикт по находкам</li>
-          <li>Чат для срочных вопросов</li>
-        </ul>
-        <a href="#book" class="btn btn-ghost" data-book="support">Начать со звонка</a>
-      </article>
+      {ORDER.map((format) => {
+        const card = t.cards[format];
+        const lead = format === 'start';
+        return (
+          <article class:list={['offer', { featured: lead }]}>
+            {card.tag && <span class:list={['tag', { acc: lead }]}>{card.tag}</span>}
+            <h3>{card.title}</h3>
+            <div class="price"><b>{prices[format]}</b><span>{card.priceNote}</span></div>
+            <p class="desc">{card.desc}</p>
+            <ul>
+              {card.itemsHtml.map((item) => <li set:html={item}></li>)}
+            </ul>
+            <a href="#book" class:list={['btn', lead ? 'btn-primary' : 'btn-ghost']} data-book={format}>{card.cta}</a>
+          </article>
+        );
+      })}
     </div>
-    <p class="note">Любой формат начинается со звонка за {prices.session} — его стоимость засчитывается в пакет. Точную сумму пакета назову на звонке.</p>
-    <div class="paychips" aria-label="Способы оплаты"><span>Visa</span><span>Mastercard</span><span>Мир</span><span>СБП</span><em>Карта любой страны, даже «Мир», — спишется в валюте карты. Из России можно и через СБП, в рублях по курсу на день оплаты.</em></div>
+    <p class="note">{t.note(prices)}</p>
+    <div class="paychips" aria-label={t.paymentLabel}><span>Visa</span><span>Mastercard</span><em>{t.paymentNote}</em></div>
   </div>
 </section>
 

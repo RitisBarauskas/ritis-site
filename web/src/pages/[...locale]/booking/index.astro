@@ -1,0 +1,62 @@
+---
+import { clientText } from '../../../i18n/client';
+import { contentIn } from '../../../i18n/content';
+import { localeOfUrl, localePaths, localized } from '../../../i18n/locales';
+import Base from '../../../layouts/Base.astro';
+import { payments } from '../../../site.config';
+
+export const getStaticPaths = localePaths;
+const locale = localeOfUrl(Astro.url);
+const t = contentIn(locale).bookingPage;
+---
+<Base title={t.title} description={t.description}>
+  <section class="block">
+    <div class="wrap">
+      <div class="status" aria-live="polite">
+        <h1 id="booking-title">{clientText(locale).screens.awaiting_payment.title}</h1>
+        <p class="sub" id="booking-text">{t.checkingText}</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button" id="booking-retry" hidden>{t.retry}</button>
+          <a class="btn btn-ghost" id="booking-resume" hidden>{t.resume}</a>
+          <a class="btn btn-ghost" href={localized(locale, '/')}>{t.home}</a>
+        </div>
+        {payments.testMode && <p class="note">{t.testNote}</p>}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { clientText } from '../../../i18n/client';
+  import { BookingApi } from '../../../scripts/booking-api';
+  import { BookingStatusPage } from '../../../scripts/booking-page';
+  import { byId } from '../../../scripts/dom';
+
+  const page = new BookingStatusPage(
+    {
+      title: byId('booking-title', HTMLHeadingElement),
+      text: byId('booking-text', HTMLParagraphElement),
+      retry: byId('booking-retry', HTMLButtonElement),
+      resume: byId('booking-resume', HTMLAnchorElement),
+    },
+    new BookingApi(),
+    // The provider's notification usually lands within seconds; a minute covers a slow one.
+    { intervalMs: 3000, attempts: 20 },
+    clientText(),
+  );
+  void page.start(new URLSearchParams(window.location.search));
+  // Back from the checkout restores this page as it was left, mid-poll and with the button
+  // pressed; the booking may have changed since, so check it again from scratch.
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) window.location.reload();
+  });
+</script>
+
+<style>
+.status{max-width:640px;padding-block:120px 0}
+.status h1{font-size:clamp(32px,4vw,48px);margin:0 0 16px}
+.status .note{margin-top:24px}
+@media (max-width:640px){
+  .status{padding-block:72px 0}
+}
+</style>

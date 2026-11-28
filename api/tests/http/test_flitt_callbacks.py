@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from ritis_api.http.flitt import NOTIFICATION_PATH
 from ritis_api.ports.payments import PaymentProviderError
 from tests.fakes import FakeProvider
-from tests.http.conftest import create, last_order, signed_notification
+from tests.http.conftest import FORM, KEY, create, last_order, signed_notification
 
 
 def test_a_signed_notification_records_the_payment(
@@ -74,6 +74,29 @@ def test_the_notification_url_handed_to_the_provider_reaches_the_handler(
     response = client.post(handed_out.path, json=signed_notification(last_order(provider)))
     assert (response.status_code, response.text) == (200, "OK")
     assert client.get(f"/api/bookings/{booking['id']}").json()["status"] == "paid"
+
+
+@pytest.mark.parametrize(
+    ("language", "page"),
+    [("ru", "/booking/"), ("ka", "/ka/booking/"), ("en", "/en/booking/")],
+)
+def test_the_customer_comes_back_to_the_booking_page_in_their_language(
+    client: TestClient, provider: FakeProvider, language: str, page: str
+) -> None:
+    response = client.post("/api/bookings", json={**FORM, "language": language}, headers=KEY)
+    booking_id = response.json()["id"]
+    handed_out = urlsplit(provider.checkout_requests[-1].return_url)
+
+    back = client.post(f"{handed_out.path}?{handed_out.query}", data={"order_status": "approved"})
+
+    assert back.headers["location"] == f"https://ritis.dev{page}?id={booking_id}"
+
+
+@pytest.mark.parametrize("lang", ["", "de", "..%2F..%2Fevil", "%2F%2Fevil.example"])
+def test_an_unknown_language_comes_back_to_the_default_page(client: TestClient, lang: str) -> None:
+    response = client.get(f"/api/payments/flitt/return?booking={'a' * 32}&lang={lang}")
+
+    assert response.headers["location"] == f"https://ritis.dev/booking/?id={'a' * 32}"
 
 
 @pytest.mark.parametrize("query", ["", "?booking=../../etc", "?booking=ABC"])

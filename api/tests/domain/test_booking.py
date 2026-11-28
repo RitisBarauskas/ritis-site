@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
-from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer
+from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer, Language
 from ritis_api.domain.errors import BookingError
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
@@ -33,9 +35,11 @@ def new_booking() -> Booking:
     return Booking.new(
         booking_id=BookingId("b" * 32),
         idempotency_key="k" * 16,
-        booking_format=BookingFormat.SESSION,
+        booking_format=BookingFormat.START,
         customer=Customer(name="A", contact="a@b.c", about="", links=""),
         price=PRICE,
+        offer_revision=date(2026, 11, 27),
+        language=Language.RU,
         now=NOW,
     )
 
@@ -225,7 +229,7 @@ class TestRefunds:
         assert status(booking) is BookingStatus.NEEDS_REVIEW
 
     def test_refunding_an_overcharge_keeps_the_flag(self) -> None:
-        # Charged 300 for a 200 call, then refunded in full: still a case for a human.
+        # Charged 300 for a 200 booking, then refunded in full: still a case for a human.
         booking = flagged_booking()
         assert booking.apply_report(O1, charged(eur(30000), eur(30000)), NOW) is True
         assert status(booking) is BookingStatus.NEEDS_REVIEW

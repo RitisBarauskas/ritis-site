@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -29,6 +30,8 @@ class Mutation:
     original: str
     mutant: str
     caught_by: str  # a pytest -k expression naming the test that must fail
+    # Firestore mutants run the tests that only the emulator can serve.
+    marks: str = "not live and not firestore"
 
     def apply(self) -> bytes:
         """Write the mutant and return the file's original bytes, to be restored as they were."""
@@ -444,6 +447,68 @@ MUTATIONS = [
         "if False:",
         "test_base_urls_must_be_https_without_a_query",
     ),
+    # Storage on Firestore: uniqueness, concurrency and the round trip, against the emulator.
+    M(
+        "adapters/firestore.py",
+        "if key_ref.get(transaction=transaction).exists:",
+        "if False:",
+        "test_one_booking_per_idempotency_key and firestore or test_twins_racing",
+        marks="firestore",
+    ),
+    M(
+        "adapters/firestore.py",
+        'if _data(stored)["version"] != booking.version:',
+        "if False:",
+        "test_a_stale_copy_cannot_overwrite_a_newer_one and firestore",
+        marks="firestore",
+    ),
+    M(
+        "adapters/firestore.py",
+        '"order_ids": [a.order_id for a in booking.attempts],',
+        '"order_ids": [],',
+        "test_finds_by_idempotency_key_and_order and firestore",
+        marks="firestore",
+    ),
+    M(
+        "adapters/firestore.py",
+        "utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second, utc.microsecond, tzinfo=UTC",
+        "utc.year, utc.month, utc.day, utc.hour, utc.minute, utc.second, 0, tzinfo=UTC",
+        "test_reads_back_what_was_stored and firestore",
+        marks="firestore",
+    ),
+    M(
+        "adapters/firestore.py",
+        '"expire_at": booking.discard_after,',
+        '"expire_at": None,',
+        "test_an_unpaid_booking_and_its_key_carry_their_deletion_date",
+        marks="firestore",
+    ),
+    M(
+        "main.py",
+        'if settings.storage == "firestore":',
+        "if False:",
+        "test_the_app_is_wired_to_firestore",
+        marks="firestore",
+    ),
+    M(
+        "settings.py",
+        'if os.environ.get("K_SERVICE") and self.storage == "memory":',
+        "if False:",
+        "test_memory_storage_is_refused_on_cloud_run",
+    ),
+    # Retention: the privacy policy keeps an unpaid booking's form 30 days, a paid one longer.
+    M(
+        "domain/booking.py",
+        "return self.created_at + UNPAID_RETENTION if self.status in _UNPAID else None",
+        "return self.created_at + UNPAID_RETENTION",
+        "test_a_booking_that_took_money_is_kept",
+    ),
+    M(
+        "domain/booking.py",
+        "return self.created_at + UNPAID_RETENTION if self.status in _UNPAID else None",
+        "return None",
+        "test_a_booking_nobody_paid_for_goes_after_thirty_days",
+    ),
 ]
 
 
@@ -455,7 +520,7 @@ def restore_interrupted_run() -> None:
         print(f"restored {backup['file']}, left mutated by an interrupted run")
 
 
-def run(selection: str) -> tuple[int, str]:
+def run(selection: str, marks: str) -> tuple[int, str]:
     """Run the selected tests; return pytest's exit code and its summary line."""
     command = [
         "uv",
@@ -465,6 +530,8 @@ def run(selection: str) -> tuple[int, str]:
         "-p",
         "no:cacheprovider",
         "--no-header",
+        "-m",
+        marks,
         "-k",
         selection,
     ]
@@ -485,14 +552,17 @@ def verdict(code: int, summary: str) -> str:
 
 def main() -> int:
     restore_interrupted_run()
-    if run("not live")[0] != 0:
+    if not os.environ.get("FIRESTORE_EMULATOR_HOST"):
+        print("start the Firestore emulator and set FIRESTORE_EMULATOR_HOST (api/README.md)")
+        return 1
+    if run("not live", "not live")[0] != 0:
         print("the suite is not green without mutations; fix that first")
         return 1
     survived = []
     for number, mutation in enumerate(MUTATIONS, 1):
         original = mutation.apply()
         try:
-            outcome = verdict(*run(mutation.caught_by))
+            outcome = verdict(*run(mutation.caught_by, mutation.marks))
         finally:
             mutation.restore(original)
         print(f"{number:2} {outcome:<14} {mutation.file}: {mutation.caught_by}")

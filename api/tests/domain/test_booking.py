@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -244,3 +244,24 @@ class TestRefunds:
         booking = paid_booking()
         booking.apply_report(O1, Charged(Money(20000, Currency.USD), Money(100, Currency.USD)), NOW)
         assert status(booking) is BookingStatus.NEEDS_REVIEW
+
+
+# --- retention: the privacy policy keeps an unpaid booking's form for 30 days ----------------
+
+
+def test_a_booking_nobody_paid_for_goes_after_thirty_days() -> None:
+    booking = with_checkout(new_booking(), O1)
+
+    booking.apply_report(O1, DECLINED, NOW)
+
+    assert booking.discard_after == NOW + timedelta(days=30)
+
+
+def test_a_booking_that_took_money_is_kept() -> None:
+    booking = with_checkout(new_booking(), O1)
+
+    booking.apply_report(O1, charged(refunded=PRICE), NOW)
+
+    # Refunded in full, yet money moved: records and disputes need the booking.
+    assert booking.status is BookingStatus.REFUNDED
+    assert booking.discard_after is None

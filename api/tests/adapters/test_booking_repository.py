@@ -1,16 +1,24 @@
-"""The BookingRepository contract. Every implementation must pass it (Firestore joins later)."""
+"""The BookingRepository contract. Every implementation must pass it.
+
+The Firestore runs need the emulator (api/README.md): `uv run pytest -m firestore`.
+"""
 
 from __future__ import annotations
 
+import os
+import uuid
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
+from google.cloud import firestore
 
+from ritis_api.adapters.firestore import FirestoreBookingRepository
 from ritis_api.adapters.memory import InMemoryBookingRepository
-from ritis_api.domain.booking import Booking, BookingFormat, Customer, Language
+from ritis_api.domain.booking import Booking, BookingFormat, BookingStatus, Customer, Language
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Currency, Money
+from ritis_api.domain.payment import AttemptStatus, PaymentAttempt
 from ritis_api.ports.storage import (
     BookingNotFoundError,
     BookingRepository,
@@ -19,10 +27,24 @@ from ritis_api.ports.storage import (
 )
 from tests.fakes import NOW
 
+EMULATOR = "FIRESTORE_EMULATOR_HOST"
 
-@pytest.fixture(params=["memory"])
+
+def emulated_firestore_project(project: str) -> firestore.Client:
+    if not os.environ.get(EMULATOR):
+        pytest.fail(f"Firestore tests need the emulator: set {EMULATOR} (see api/README.md)")
+    return firestore.Client(project=project)
+
+
+def emulated_firestore() -> firestore.Client:
+    # The emulator keeps projects apart: a project of its own per test needs no cleanup.
+    return emulated_firestore_project(f"demo-ritis-{uuid.uuid4().hex[:12]}")
+
+
+@pytest.fixture(params=["memory", pytest.param("firestore", marks=pytest.mark.firestore)])
 def repository(request: pytest.FixtureRequest) -> BookingRepository:
-    assert request.param == "memory"
+    if request.param == "firestore":
+        return FirestoreBookingRepository(emulated_firestore())
     return InMemoryBookingRepository()
 
 
@@ -41,9 +63,41 @@ def booking(booking_id: str = "a" * 32, key: str = "key-0000000000000001") -> Bo
     return new
 
 
+def lived_through_everything() -> Booking:
+    """A booking with every field set, none at its default: a round trip must keep them all."""
+    stored = booking()
+    euros = Currency.EUR
+    stored.attempts = [
+        PaymentAttempt(
+            order_id=OrderId("order-1"),
+            provider="fake",
+            price=Money(20000, euros),
+            created_at=NOW,
+            status=AttemptStatus.DECLINED,
+            checkout_url="https://pay.example/order-1",
+            provider_payment_id="p-1",
+        ),
+        PaymentAttempt(
+            order_id=OrderId("order-2"),
+            provider="fake",
+            price=Money(20000, euros),
+            created_at=NOW + timedelta(minutes=5, microseconds=654321),
+            status=AttemptStatus.APPROVED,
+            charged=Money(20000, euros),
+            refunded=Money(5000, euros),
+            checkout_url="https://pay.example/order-2",
+            provider_payment_id="p-2",
+        ),
+    ]
+    stored.status = BookingStatus.NEEDS_REVIEW
+    stored.paid_at = NOW + timedelta(minutes=6, microseconds=123456)
+    stored.review_reason = "refunded 50.00 EUR of 200.00 EUR"
+    return stored
+
+
 def test_reads_back_what_was_stored(repository: BookingRepository) -> None:
     # Every field counts: the accepted offer revision settles refund and chargeback disputes.
-    stored = booking()
+    stored = lived_through_everything()
     repository.add(stored)
 
     loaded = repository.get(stored.id)

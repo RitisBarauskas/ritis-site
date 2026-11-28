@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import FastAPI
+from google.cloud import firestore
 
+from ritis_api.adapters.firestore import FirestoreBookingRepository
 from ritis_api.adapters.flitt import FlittNotifications, FlittPaymentProvider
 from ritis_api.adapters.log_notifier import LoggingNotifier
 from ritis_api.adapters.memory import InMemoryBookingRepository
@@ -17,6 +19,7 @@ from ritis_api.app.confirm_payment import ConfirmPayment
 from ritis_api.app.open_booking import OpenBooking
 from ritis_api.http.app import create_app
 from ritis_api.http.flitt import flitt_checkout_settings
+from ritis_api.ports.storage import BookingRepository
 from ritis_api.settings import Settings
 
 
@@ -39,8 +42,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         secret_key=secret,
         base_url=settings.flitt_base_url,
     )
-    # In-memory until Firestore: right for one local process, wrong for Cloud Run.
-    repository = InMemoryBookingRepository()
+    repository = _repository(settings)
     confirm_payment = ConfirmPayment(
         repository=repository,
         provider=provider,
@@ -73,3 +75,9 @@ def build_app(settings: Settings | None = None) -> FastAPI:
         site_url=settings.site_url,
         lifespan=lifespan,
     )
+
+
+def _repository(settings: Settings) -> BookingRepository:
+    if settings.storage == "firestore":
+        return FirestoreBookingRepository(firestore.Client(database=settings.firestore_database))
+    return InMemoryBookingRepository()

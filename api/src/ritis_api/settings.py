@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -29,6 +30,18 @@ class Settings(BaseSettings):
     checkout_lifetime_seconds: int = Field(default=3600, ge=300, le=86400)
     recheck_interval_seconds: float = Field(default=5.0, ge=1, le=60)
     http_timeout_seconds: float = Field(default=10.0, gt=0, le=30)
+    # Where bookings live: process memory for one local process, Firestore for Cloud Run. The
+    # Firestore project comes from the environment (GOOGLE_CLOUD_PROJECT or the credentials).
+    storage: Literal["memory", "firestore"] = "memory"
+    firestore_database: str = "(default)"
+
+    @model_validator(mode="after")
+    def _shared_storage_on_cloud_run(self) -> Settings:
+        # Cloud Run sets K_SERVICE. Its instances share no memory: a booking made on one would
+        # be missing on the next, and a payment would never be confirmed.
+        if os.environ.get("K_SERVICE") and self.storage == "memory":
+            raise ValueError("in-memory storage on Cloud Run: set RITIS_STORAGE=firestore")
+        return self
 
     @model_validator(mode="after")
     def _no_unknown_ritis_variables(self) -> Settings:

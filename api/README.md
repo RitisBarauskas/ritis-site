@@ -34,10 +34,20 @@ uv run uvicorn ritis_api.main:build_app --factory --port 8000
 
 Pay in Flitt's test checkout with card `4444 5555 6666 1111`, any expiry and CVV.
 
-Checks, the same as CI:
+Bookings live in memory locally (`RITIS_STORAGE=memory`, the default); on Cloud Run they live in Firestore (`RITIS_STORAGE=firestore`), and the API refuses to start there with memory, which instances do not share.
+
+Checks, the same as CI. The Firestore tests and the mutants need Google's Firestore emulator, here in Docker:
 
 ```sh
+docker run -d --name ritis-firestore -p 127.0.0.1:8085:8085   gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators   gcloud emulators firestore start --host-port=0.0.0.0:8085
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8085
+
 uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
+uv run pytest -m firestore                 # the repository contract on the emulator
 uv run python scripts/check_mutations.py   # every key rule, broken, must fail its own test
 uv run pytest -m live                      # against Flitt's test merchant, over the network
 ```
+
+## Storage
+
+A booking is one Firestore document in `bookings/{id}`, its payment attempts included; an idempotency key owns a document in `idempotency_keys/{sha256 of the key}`, created in the same transaction, since Firestore has no unique index. A save is a transaction that checks the version it read. A booking nobody paid for, and its key, carry `expire_at` (30 days after the booking, as the privacy policy states); Firestore's TTL policy on that field deletes them. A booking that took any money has no `expire_at` and stays.

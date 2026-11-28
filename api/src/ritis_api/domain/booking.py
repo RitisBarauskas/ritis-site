@@ -9,7 +9,7 @@ automatically.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 
 from ritis_api.domain.errors import BookingError
@@ -62,6 +62,9 @@ _RETRYABLE = frozenset(
     {BookingStatus.AWAITING_PAYMENT, BookingStatus.DECLINED, BookingStatus.EXPIRED}
 )
 _SETTLED = frozenset({BookingStatus.PAID, BookingStatus.REFUNDED})
+_UNPAID = frozenset({BookingStatus.AWAITING_PAYMENT, BookingStatus.DECLINED, BookingStatus.EXPIRED})
+# The privacy policy keeps the form of a booking that was never paid for 30 days.
+UNPAID_RETENTION = timedelta(days=30)
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +138,15 @@ class Booking:
         return self.status in _RETRYABLE and (
             attempt is None or attempt.status is not AttemptStatus.PENDING
         )
+
+    @property
+    def discard_after(self) -> datetime | None:
+        """When a booking nobody paid for is to be deleted; None while it must be kept.
+
+        Any charge moves a booking out of the unpaid statuses (to paid, refunded or a flag for a
+        human), and records and disputes need it from then on.
+        """
+        return self.created_at + UNPAID_RETENTION if self.status in _UNPAID else None
 
     def attempt(self, order_id: OrderId) -> PaymentAttempt:
         for attempt in self.attempts:

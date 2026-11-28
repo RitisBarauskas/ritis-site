@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -9,10 +10,13 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from ritis_api.adapters.firestore import FirestoreBookingRepository
 from ritis_api.adapters.flitt.signature import FlittSigner
+from ritis_api.domain.booking import BookingStatus
 from ritis_api.http.flitt import NOTIFICATION_PATH, RETURN_PATH
 from ritis_api.main import build_app
 from ritis_api.settings import Settings
+from tests.adapters.test_booking_repository import booking, emulated_firestore_project
 
 SHARED_CATALOG = Path(__file__).resolve().parents[2] / "shared" / "catalog.json"
 
@@ -82,3 +86,26 @@ def test_known_environment_variables_are_accepted(monkeypatch: pytest.MonkeyPatc
 def test_a_missing_catalog_stops_the_start(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         build_app(settings(catalog_path=tmp_path / "missing.json"))
+
+
+def test_memory_storage_is_refused_on_cloud_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Cloud Run sets K_SERVICE; its instances share no memory, so bookings would go missing.
+    monkeypatch.setenv("K_SERVICE", "ritis-api")
+    with pytest.raises(ValidationError, match="in-memory storage on Cloud Run"):
+        settings()
+    assert settings(storage="firestore").storage == "firestore"
+
+
+@pytest.mark.firestore
+def test_the_app_is_wired_to_firestore(monkeypatch: pytest.MonkeyPatch) -> None:
+    project = f"demo-ritis-{uuid.uuid4().hex[:12]}"
+    # A paid booking put straight into the emulator: only an app that reads Firestore finds it.
+    seeded = booking()
+    seeded.status = BookingStatus.PAID
+    FirestoreBookingRepository(emulated_firestore_project(project)).add(seeded)
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", project)
+
+    with TestClient(build_app(settings(storage="firestore"))) as client:
+        answer = client.get(f"/api/bookings/{seeded.id}")
+
+    assert (answer.status_code, answer.json()["status"]) == (200, "paid")

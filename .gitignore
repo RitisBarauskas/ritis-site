@@ -31,5 +31,12 @@ __pycache__/
 api/.mutation-backup
 web/.mutation-backup
 
+# terraform: state holds the sweep token; variables hold the billing account
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/*.tfvars
+infra/.terraform.lock.hcl.bak
+
 # local-only: the design prototype is not part of the repository
 prototype/

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import timedelta
 
 from ritis_api.app.catalog import Catalog
+from ritis_api.app.confirm_payment import ConfirmPayment
 from ritis_api.app.runtime import Clock, IdFactory
 from ritis_api.domain.booking import (
     Booking,
@@ -59,6 +61,7 @@ class OpenBooking:
         provider: PaymentProvider,
         catalog: Catalog,
         settings: CheckoutSettings,
+        confirm_payment: ConfirmPayment,
         clock: Clock,
         new_id: IdFactory,
     ) -> None:
@@ -66,6 +69,7 @@ class OpenBooking:
         self._provider = provider
         self._catalog = catalog
         self._settings = settings
+        self._confirm_payment = confirm_payment
         self._clock = clock
         self._new_id = new_id
 
@@ -111,6 +115,10 @@ class OpenBooking:
         return self._ensure_checkout(booking)
 
     def _ensure_checkout(self, booking: Booking) -> Booking:
+        if booking.open_checkout_url is not None and self._outlived(booking):
+            # Past its lifetime the checkout is most likely expired at the provider, and its
+            # notice may never have come: ask, so the customer is not sent to a dead order.
+            booking = self._confirm_payment.refresh(booking.id)
         if booking.open_checkout_url is not None:
             return booking
         attempt = booking.current_attempt
@@ -127,6 +135,11 @@ class OpenBooking:
         if not booking.can_retry_payment:
             return booking
         return self._open_checkout(booking, self._new_attempt(booking))
+
+    def _outlived(self, booking: Booking) -> bool:
+        attempt = booking.current_attempt
+        lifetime = timedelta(seconds=self._settings.lifetime_seconds)
+        return attempt is not None and attempt.created_at + lifetime <= self._clock()
 
     def _open_checkout(self, booking: Booking, order_id: OrderId) -> Booking:
         try:

@@ -47,6 +47,11 @@ class InMemoryBookingRepository:
         with self._lock:
             return self._find(lambda b: any(a.order_id == order_id for a in b.attempts))
 
+    def with_unsent_notices(self, limit: int) -> list[Booking]:
+        with self._lock:
+            found = [b for b in self._bookings.values() if b.unsent_notices][:limit]
+            return [copy.deepcopy(b) for b in found]
+
     def save(self, booking: Booking) -> None:
         with self._lock:
             stored = self._bookings.get(booking.id)

@@ -20,7 +20,11 @@ class ConcurrentModificationError(Exception):
 
 class BookingRepository(Protocol):
     def add(self, booking: Booking) -> None:
-        """Store a new booking. Raises DuplicateIdempotencyKeyError if the key is taken."""
+        """Store a new booking. Raises DuplicateIdempotencyKeyError if the key is taken.
+
+        Raises ConcurrentModificationError if the store stayed too contended to write: the
+        caller may try again, as with save.
+        """
         ...
 
     def get(self, booking_id: BookingId) -> Booking:
@@ -30,6 +34,10 @@ class BookingRepository(Protocol):
     def find_by_idempotency_key(self, key: str) -> Booking | None: ...
 
     def find_by_order_id(self, order_id: OrderId) -> Booking | None: ...
+
+    def with_unsent_notices(self, limit: int) -> list[Booking]:
+        """Up to `limit` bookings that keep owner notices not yet delivered."""
+        ...
 
     def save(self, booking: Booking) -> None:
         """Store changes if nobody saved this booking since it was read.

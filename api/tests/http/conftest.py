@@ -9,15 +9,17 @@ from ritis_api.adapters.flitt import FlittNotifications
 from ritis_api.adapters.flitt.signature import FlittSigner
 from ritis_api.adapters.memory import InMemoryBookingRepository
 from ritis_api.app.confirm_payment import ConfirmPayment
+from ritis_api.app.deliver_notices import DeliverNotices
 from ritis_api.domain.identifiers import OrderId
 from ritis_api.http.app import create_app
 from ritis_api.http.flitt import flitt_checkout_settings
 from tests.conftest import make_open_booking
-from tests.fakes import Clock, FakeProvider
+from tests.fakes import Clock, FakeProvider, RecordingNotifier
 
 MERCHANT_ID = 1549901
 SIGNER = FlittSigner("test")
 KEY = {"Idempotency-Key": "key-0000000000000001"}
+SWEEP_TOKEN = "s" * 40
 FORM: dict[str, Any] = {
     "format": "foundation",
     "name": "Анна",
@@ -35,15 +37,20 @@ def client(
     repository: InMemoryBookingRepository,
     provider: FakeProvider,
     confirm_payment: ConfirmPayment,
+    notifier: RecordingNotifier,
     clock: Clock,
 ) -> TestClient:
     # The same URL builder as the composition root, so the URLs handed out match the routes.
     settings = flitt_checkout_settings("https://ritis.dev", lifetime_seconds=3600)
     app = create_app(
-        open_booking=make_open_booking(repository, provider, clock, settings),
+        open_booking=make_open_booking(
+            repository, provider, clock, settings, confirm_payment=confirm_payment
+        ),
         confirm_payment=confirm_payment,
         flitt_notifications=FlittNotifications(SIGNER, merchant_id=MERCHANT_ID),
+        deliver_notices=DeliverNotices(repository=repository, notifier=notifier),
         site_url="https://ritis.dev/",
+        sweep_token=SWEEP_TOKEN,
     )
     return TestClient(app, follow_redirects=False)
 

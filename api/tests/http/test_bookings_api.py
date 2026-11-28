@@ -133,3 +133,17 @@ def test_no_public_api_docs(client: TestClient) -> None:
     assert client.get("/api/health").json() == {"status": "ok"}
     for path in ("/docs", "/redoc", "/openapi.json"):
         assert client.get(path).status_code == 404
+
+
+def test_no_answer_of_the_api_may_be_cached(client: TestClient) -> None:
+    # Firebase Hosting caches what is allowed to be cached; a booking's state never is.
+    booking = create(client)
+    answers = [
+        client.get(f"/api/bookings/{booking['id']}"),
+        client.get(f"/api/bookings/{'f' * 32}"),
+        client.get("/api/payments/flitt/return"),
+        client.get("/api/health"),
+        client.post("/api/bookings", json={}, headers=KEY),
+    ]
+
+    assert [a.headers.get("cache-control") for a in answers] == ["no-store"] * len(answers)

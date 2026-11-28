@@ -1,0 +1,8 @@
+# The API image takes api/ and shared/catalog.json only (api/Dockerfile); nothing secret goes in.
+**
+!api/pyproject.toml
+!api/uv.lock
+!api/README.md
+!api/src/**
+!shared/catalog.json
+**/__pycache__

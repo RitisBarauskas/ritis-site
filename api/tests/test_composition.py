@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
+import logging
+import uuid
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from ritis_api.adapters.firestore import FirestoreBookingRepository
 from ritis_api.adapters.flitt.signature import FlittSigner
+from ritis_api.adapters.telegram import TelegramNotifier
+from ritis_api.domain.booking import BookingStatus, NoticeKind, OwnerNotice
 from ritis_api.http.flitt import NOTIFICATION_PATH, RETURN_PATH
 from ritis_api.main import build_app
 from ritis_api.settings import Settings
+from tests.adapters.test_booking_repository import booking, emulated_firestore_project
+from tests.fakes import NOW
 
 SHARED_CATALOG = Path(__file__).resolve().parents[2] / "shared" / "catalog.json"
 
@@ -82,3 +90,68 @@ def test_known_environment_variables_are_accepted(monkeypatch: pytest.MonkeyPatc
 def test_a_missing_catalog_stops_the_start(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         build_app(settings(catalog_path=tmp_path / "missing.json"))
+
+
+PRODUCTION = {
+    "storage": "firestore",
+    "telegram_bot_token": "123:token-of-the-bot",
+    "telegram_chat_id": 42,
+    "sweep_token": "s" * 40,
+}
+
+
+def test_memory_storage_is_refused_on_cloud_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Cloud Run sets K_SERVICE; its instances share no memory, so bookings would go missing.
+    monkeypatch.setenv("K_SERVICE", "ritis-api")
+    with pytest.raises(ValidationError, match="in-memory storage on Cloud Run"):
+        settings(**{**PRODUCTION, "storage": "memory"})
+    assert settings(**PRODUCTION).storage == "firestore"
+
+
+@pytest.mark.parametrize("missing", ["telegram_bot_token", "sweep_token"])
+def test_cloud_run_needs_telegram_and_the_sweep(
+    monkeypatch: pytest.MonkeyPatch, missing: str
+) -> None:
+    monkeypatch.setenv("K_SERVICE", "ritis-api")
+    kept = {k: v for k, v in PRODUCTION.items() if k != missing}
+    if missing == "telegram_bot_token":
+        kept.pop("telegram_chat_id")
+    with pytest.raises(ValidationError, match="Telegram"):
+        settings(**kept)
+
+
+def test_telegram_needs_both_the_token_and_the_chat() -> None:
+    with pytest.raises(ValidationError, match="both"):
+        settings(telegram_bot_token="123:token")
+
+
+def test_the_bot_token_never_reaches_the_log(caplog: pytest.LogCaptureFixture) -> None:
+    # httpx logs each request's URL at INFO, and the bot token is part of Telegram's URL.
+    logging.getLogger("httpx").setLevel(logging.NOTSET)
+    build_app(settings(telegram_bot_token="123:secret-bot-token", telegram_chat_id=42))
+    transport = httpx.MockTransport(lambda _: httpx.Response(200, json={"ok": True}))
+    notifier = TelegramNotifier(
+        httpx.Client(transport=transport), token="123:secret-bot-token", chat_id=42
+    )
+    paid = booking()
+    paid.unsent_notices = [OwnerNotice(NoticeKind.PAID, NOW)]
+
+    with caplog.at_level(logging.DEBUG):
+        notifier.send(paid.unsent_notices[0], paid)
+
+    assert "secret-bot-token" not in caplog.text
+
+
+@pytest.mark.firestore
+def test_the_app_is_wired_to_firestore(monkeypatch: pytest.MonkeyPatch) -> None:
+    project = f"demo-ritis-{uuid.uuid4().hex[:12]}"
+    # A paid booking put straight into the emulator: only an app that reads Firestore finds it.
+    seeded = booking()
+    seeded.status = BookingStatus.PAID
+    FirestoreBookingRepository(emulated_firestore_project(project)).add(seeded)
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", project)
+
+    with TestClient(build_app(settings(storage="firestore"))) as client:
+        answer = client.get(f"/api/bookings/{seeded.id}")
+
+    assert (answer.status_code, answer.json()["status"]) == (200, "paid")

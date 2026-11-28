@@ -8,10 +8,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from ritis_api.adapters.memory import InMemoryBookingRepository
-from ritis_api.domain.booking import Booking
+from ritis_api.domain.booking import Booking, NoticeKind, OwnerNotice
 from ritis_api.domain.identifiers import BookingId, OrderId
 from ritis_api.domain.money import Money
 from ritis_api.domain.payment import Charged, NotCharged, Outcome, PaymentReport
+from ritis_api.ports.notifications import NotifierError
 from ritis_api.ports.payments import (
     Checkout,
     CheckoutRequest,
@@ -147,6 +148,9 @@ class RacingRepository:
     def find_by_order_id(self, order_id: OrderId) -> Booking | None:
         return self._inner.find_by_order_id(order_id)
 
+    def with_unsent_notices(self, limit: int) -> list[Booking]:
+        return self._inner.with_unsent_notices(limit)
+
     def _race(self) -> None:
         if not self.raced:
             self.raced = True
@@ -154,15 +158,18 @@ class RacingRepository:
 
 
 class RecordingNotifier:
+    """Records what the owner was told; `broken` makes the messenger refuse every message."""
+
     def __init__(self) -> None:
         self.paid: list[str] = []
         self.review: list[str] = []
         self.broken = False
 
-    def booking_paid(self, booking: Booking) -> None:
+    def send(self, notice: OwnerNotice, booking: Booking) -> None:
         if self.broken:
-            raise RuntimeError("notifier is down")
-        self.paid.append(booking.id)
-
-    def booking_needs_review(self, booking: Booking) -> None:
-        self.review.append(booking.id)
+            raise NotifierError("messenger is down")
+        match notice.kind:
+            case NoticeKind.PAID:
+                self.paid.append(booking.id)
+            case NoticeKind.NEEDS_REVIEW:
+                self.review.append(booking.id)

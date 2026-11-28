@@ -82,10 +82,12 @@ jobs:
   api:
     name: api
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: api
+    env:
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8085
     steps:
       - uses: actions/checkout@v7
         with:
@@ -97,27 +99,73 @@ jobs:
 
       - run: uv sync --locked
 
+      # The Firestore tests and mutants run against Google's emulator (Cloud SDK 594.0.1),
+      # pinned by digest; it starts while the checks below run.
+      - name: Start the Firestore emulator
+        run: >-
+          docker run -d --name firestore -p 127.0.0.1:8085:8085
+          gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:17b4e7f940db19984c051a321c32f57bf679cb7148835fd16ddc7ce2908a70d8
+          gcloud emulators firestore start --host-port=0.0.0.0:8085
+
       - name: Lint and format
         run: uv run ruff check . && uv run ruff format --check .
 
       - name: Types
         run: uv run mypy
 
-      # Live tests against Flitt are excluded by default (pytest -m live runs them).
+      # Live tests against Flitt and the Firestore ones are excluded by default.
       - name: Tests
         run: uv run pytest
+
+      - name: Wait for the Firestore emulator
+        run: |
+          for _ in $(seq 1 60); do curl -sf "http://$FIRESTORE_EMULATOR_HOST/" && exit 0; sleep 2; done
+          docker logs firestore
+          exit 1
+
+      # pytest exits non-zero when it selects no test, so a lost marker cannot pass silently.
+      - name: Firestore tests
+        run: uv run pytest -m firestore
 
       # Each key rule is broken in turn and its own test must fail: green tests that cannot
       # fail would prove nothing.
       - name: Tests catch broken rules
         run: uv run python scripts/check_mutations.py
 
+  # The cloud side as code: Terraform must parse and validate, and the API image must build.
+  infra:
+    name: infra
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Only GitHub-owned actions are allowed, so Terraform comes from HashiCorp's releases,
+      # checked against the published checksum.
+      - name: Install Terraform 1.15.1
+        run: |
+          curl -fsSLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.15.1/terraform_1.15.1_linux_amd64.zip
+          echo "0921fee8c8435253ca49390a02109e906042e611a4e17f69e922261f5176c74f  /tmp/terraform.zip" | sha256sum -c -
+          sudo unzip -o -q /tmp/terraform.zip terraform -d /usr/local/bin
+
+      - name: Terraform format and validate
+        working-directory: infra
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+
+      - name: API image builds
+        run: docker build -f api/Dockerfile -t ritis-api:ci .
+
   # The one check main requires. A new job only needs adding to `needs`: any failed, cancelled
   # or skipped job turns this red.
   ci-ok:
     name: CI ok
     if: always()
-    needs: [web, web-mutations, api]
+    needs: [web, web-mutations, api, infra]
     runs-on: ubuntu-24.04
     steps:
       - name: Every job passed

@@ -22,6 +22,11 @@ const path = withoutLocale(Astro.url.pathname);
           <a href={localized(l, path)} hreflang={l} lang={l} title={LANGUAGE_NAMES[l]} aria-label={LANGUAGE_NAMES[l]} aria-current={l === locale ? 'page' : undefined} data-lang-switch>{LANGUAGE_CODES[l]}</a>
         ))}
       </nav>
+      {/* Runs as the page is parsed, before the page's scripts load: the same page in another
+          language keeps its query and section from the first moment (a booking page, its id). */}
+      <script is:inline>
+        for (const a of document.querySelectorAll('[data-lang-switch]')) a.href = a.pathname + location.search + location.hash;
+      </script>
       <button type="button" class="icon-btn" id="theme" aria-label={t.theme}>◐</button>
       <a href="#book" class="btn btn-primary btn-sm" data-book="start">{t.cta}</a>
     </div>
@@ -42,7 +47,7 @@ const path = withoutLocale(Astro.url.pathname);
     }
   });
 
-  // The same page in another language keeps its query and section: a booking page keeps its id.
+  // A section reached after the page loaded (a link to #help, say) is kept as well.
   for (const link of all<HTMLAnchorElement>('[data-lang-switch]')) {
     link.addEventListener('click', () => {
       link.href = link.pathname + window.location.search + window.location.hash;

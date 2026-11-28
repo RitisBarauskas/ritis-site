@@ -93,6 +93,17 @@ test.describe('переключатель языка', () => {
     await expect(page).toHaveURL(`/booking/?id=${ID}`);
   });
 
+  test('сохраняет параметры, даже пока скрипты страницы не загрузились', async ({ page }) => {
+    // A visitor can click before the page's own scripts arrive (a slow connection): without them
+    // the link must already carry the booking id.
+    await page.route('**/_astro/*.js', (route) => route.abort());
+    await page.goto(`/en/booking/?id=${ID}`);
+
+    await page.locator('header').getByRole('link', { name: 'Русский' }).click();
+
+    await expect(page).toHaveURL(`/booking/?id=${ID}`);
+  });
+
   test('сохраняет раздел страницы', async ({ page }) => {
     await page.goto('/offer/#refund');
 

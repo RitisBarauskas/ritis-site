@@ -91,12 +91,15 @@ def make_open_booking(
     clock: Clock,
     settings: CheckoutSettings = SETTINGS,
     catalog: Catalog = CATALOG,
+    confirm_payment: ConfirmPayment | None = None,
 ) -> OpenBooking:
     return OpenBooking(
         repository=repository,
         provider=provider,
         catalog=catalog,
         settings=settings,
+        confirm_payment=confirm_payment
+        or make_confirm_payment(repository, provider, RecordingNotifier(), clock),
         clock=clock,
         new_id=Ids(),
     )

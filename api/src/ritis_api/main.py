@@ -59,6 +59,7 @@ def build_app(settings: Settings | None = None) -> FastAPI:
     open_booking = OpenBooking(
         repository=repository,
         provider=provider,
+        confirm_payment=confirm_payment,
         catalog=load_catalog(settings.catalog_path),
         settings=flitt_checkout_settings(
             settings.api_base_url, lifetime_seconds=settings.checkout_lifetime_seconds

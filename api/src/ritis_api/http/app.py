@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 
 from ritis_api.adapters.flitt import FlittNotifications
 from ritis_api.app.confirm_payment import ConfirmPayment
@@ -31,6 +31,16 @@ def create_app(
     app = FastAPI(
         title="ritis-api", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan
     )
+
+    # Firebase Hosting is a CDN in front of the API: a booking's state must never be served
+    # from a cache, an error or a redirect neither.
+    @app.middleware("http")
+    async def never_cached(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

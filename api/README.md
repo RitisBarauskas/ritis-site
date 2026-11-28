@@ -15,11 +15,12 @@ Ports and adapters, with the rules in the domain:
 
 ## How a payment is confirmed
 
-1. `POST /api/bookings` with an `Idempotency-Key` creates the booking and opens a Flitt checkout. The price and the order text the customer sees at Flitt come from `shared/catalog.json` for the chosen format, never from the client; a package is booked at the price of the format it starts with. The booking keeps the site's language (`ru`, `ka` or `en`): the checkout page, the order text and the way back to the site's booking page follow it. Flitt shows an unknown language in English without an error, so the API accepts only these three. Reusing a key for different data, or in another language, is refused.
+1. `POST /api/bookings` with an `Idempotency-Key` creates the booking and opens a Flitt checkout. The price and the order text the customer sees at Flitt come from `shared/catalog.json` for the chosen format, never from the client; a package is booked at the price of the format it starts with. The booking keeps the site's language (`ru`, `ka` or `en`): the checkout page, the order text and the way back to the site's booking page follow it. Flitt shows an unknown language in English without an error, so the API accepts only these three. Reusing a key for different data, or in another language, is refused. A repeat with the same key answers with the same booking; if its checkout has outlived its lifetime, the order is re-read from Flitt first, so a dead checkout is never handed out.
 2. One checkout is one try (`delayed=N`): after a decline the customer comes back and pays again through a new order.
 3. Flitt notifies `POST /api/payments/flitt/notification`; the customer returns through `/api/payments/flitt/return` and is redirected to the booking page, which polls `GET /api/bookings/{id}`.
 4. A notification is only a signal and the return is only navigation: the order is always re-read from Flitt with a signed request and applied to the booking. Repeats change nothing; polling reaches Flitt at most once per few seconds per order and per running instance.
 5. Whatever the provider reports that contradicts the booking (another amount or currency, a second payment, a refund above the charge) is flagged for a human, never guessed or dropped. Refunds are made in Flitt's merchant portal and picked up the same way.
+6. Every answer of the API carries `Cache-Control: no-store`: Firebase Hosting in front of it is a CDN, and a booking's state must never come from a cache.
 
 ## Locally
 

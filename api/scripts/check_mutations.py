@@ -535,6 +535,25 @@ MUTATIONS = [
         "except NotifierError:",
         "test_a_bug_in_the_notifier_does_not_fail_the_recorded_payment",
     ),
+    # A repeated request never hands out a dead order; no answer of the API is cached.
+    M(
+        "app/open_booking.py",
+        "if booking.open_checkout_url is not None and self._outlived(booking):",
+        "if False:",
+        "test_a_repeat_after_the_checkout_lifetime_asks_the_provider_first",
+    ),
+    M(
+        "app/open_booking.py",
+        "return attempt is not None and attempt.created_at + lifetime <= self._clock()",
+        "return attempt is not None",
+        "test_a_repeat_within_the_lifetime_does_not_ask_the_provider",
+    ),
+    M(
+        "http/app.py",
+        'response.headers["Cache-Control"] = "no-store"',
+        "pass",
+        "test_no_answer_of_the_api_may_be_cached",
+    ),
     M(
         "http/internal.py",
         "if not hmac.compare_digest(given, expected):",

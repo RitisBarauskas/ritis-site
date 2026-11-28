@@ -13,7 +13,7 @@ from ritis_api.domain.errors import BookingError
 from ritis_api.domain.money import Currency, Money
 from ritis_api.domain.payment import AttemptStatus
 from ritis_api.ports.payments import PaymentProviderError
-from tests.conftest import PRICE, make_open_booking, order_of, start_command
+from tests.conftest import PRICE, SETTINGS, make_open_booking, order_of, start_command
 from tests.fakes import Clock, FakeProvider, RacingRepository
 
 
@@ -84,6 +84,48 @@ def test_a_repeated_request_returns_the_same_checkout(
     first = open_booking.start(start_command())
     second = open_booking.start(start_command())
     assert (second.id, second.open_checkout_url) == (first.id, first.open_checkout_url)
+    assert len(provider.checkout_requests) == 1
+
+
+def test_a_repeat_after_the_checkout_lifetime_asks_the_provider_first(
+    open_booking: OpenBooking, provider: FakeProvider, clock: Clock
+) -> None:
+    first = open_booking.start(start_command())
+    # Expired at the provider, and the notice of it never came.
+    provider.expire(order_of(first))
+    clock.advance(SETTINGS.lifetime_seconds)
+
+    second = open_booking.start(start_command())
+
+    assert second.id == first.id
+    assert second.open_checkout_url is not None
+    assert second.open_checkout_url != first.open_checkout_url, "never the dead order again"
+    assert len(provider.checkout_requests) == 2
+
+
+def test_a_repeat_within_the_lifetime_does_not_ask_the_provider(
+    open_booking: OpenBooking, provider: FakeProvider, clock: Clock
+) -> None:
+    first = open_booking.start(start_command())
+    clock.advance(SETTINGS.lifetime_seconds - 1)
+
+    second = open_booking.start(start_command())
+
+    assert second.open_checkout_url == first.open_checkout_url
+    assert provider.report_calls == 0
+
+
+def test_a_repeat_of_an_outlived_checkout_that_was_paid_hands_out_none(
+    open_booking: OpenBooking, provider: FakeProvider, clock: Clock
+) -> None:
+    first = open_booking.start(start_command())
+    provider.approve(order_of(first))
+    clock.advance(SETTINGS.lifetime_seconds)
+
+    second = open_booking.start(start_command())
+
+    assert second.status is BookingStatus.PAID
+    assert second.open_checkout_url is None
     assert len(provider.checkout_requests) == 1
 
 
